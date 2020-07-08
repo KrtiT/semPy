@@ -75,7 +75,7 @@ class Solver():
         if options is None:
             options = dict()
         if 'maxiter' not in options:
-            options['maxiter'] = 1000
+            options['maxiter'] = 10000
         self.method = method
         self.fun = fun
         self.grad = grad

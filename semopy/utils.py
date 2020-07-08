@@ -71,7 +71,10 @@ def cov(x: np.ndarray):
 
     """
     masked_x = np.ma.array(x, mask=np.isnan(x))
-    return np.ma.cov(masked_x, bias=True, rowvar=False).data
+    cov = np.ma.cov(masked_x, bias=True, rowvar=False).data
+    if cov.size == 1:
+        cov.resize((1,1))
+    return cov
 
 
 def cor(x: np.ndarray):
@@ -90,7 +93,10 @@ def cor(x: np.ndarray):
 
     """
     masked_x = np.ma.array(x, mask=np.isnan(x))
-    return np.ma.corrcoef(masked_x, bias=True, rowvar=False).data
+    cor = np.ma.corrcoef(masked_x, bias=True, rowvar=False).data
+    if cor.size == 1:
+        cor.resize((1,1))
+    return cor
 
 
 def chol_inv(x: np.array):

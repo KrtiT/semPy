@@ -2,9 +2,9 @@
 """Random Effects SEM."""
 import pandas as pd
 import numpy as np
-from .model_means import ModelMeans
-from .utils import chol_inv, chol_inv2, cov, kron_identity
-from .solver import Solver
+from model_means import ModelMeans
+from utils import chol_inv, chol_inv2, cov, kron_identity
+from solver import Solver
 import logging
 
 
@@ -20,7 +20,7 @@ class ModelEffects(ModelMeans):
     symb_rf_covariance = '~R~'
 
     def __init__(self, description: str, mimic_lavaan=False, baseline=False,
-                 intercepts=True):
+                 intercepts=False):
         """
         Instantiate Random Effects SEM.
 
@@ -43,7 +43,7 @@ class ModelEffects(ModelMeans):
         intercepts: bool
             If True, intercepts are also modeled. Intercept terms can be
             accessed via "1" symbol in a regression equation, i.e. x1 ~ 1. The
-            default is True.
+            default is False.
 
         Returns
         -------
@@ -73,7 +73,7 @@ class ModelEffects(ModelMeans):
         super().preprocess_effects(effects)
         for v in self.vars['observed']:
             if v not in self.vars['latent']:  # Workaround for Imputer
-                t = effects[self.symb_rf_covariance][v]
+                t = effects[self.symb_covariance][v]
                 if v not in t:
                     t[v] = None
         t = effects[self.symb_rf_covariance]['1']
@@ -137,7 +137,8 @@ class ModelEffects(ModelMeans):
 
         KeyError
             Rises when there are missing variables from the data.
-
+        Exceptio
+            Rises when group parameter is None.
         Returns
         -------
         None.
@@ -147,6 +148,8 @@ class ModelEffects(ModelMeans):
             if not hasattr(self, 'mx_data'):
                 raise Exception("Data must be provided.")
             return
+        if group is None:
+            raise Exception('Group name (column) must be provided.')
         obs = self.vars['observed']
         exo = self.vars['observed_exogenous']
         if self.intercepts:
@@ -255,6 +258,62 @@ class ModelEffects(ModelMeans):
                 if name is None:
                     self.n_param_cov += 1
                     name = '_c%s' % self.n_param_cov
+                i, j = rows.index(lv), cols.index(rv)
+                ind = (i, j)
+                if i == j:
+                    bound = (0, None)
+                    symm = False
+                else:
+                    if self.baseline:
+                        continue
+                    bound = (None, None)
+                    symm = True
+                self.add_param(name, matrix=mx, indices=ind, start=val,
+                               active=active, symmetric=symm, bound=bound)
+
+    def effect_covariance(self, items: dict):
+        """
+        Work through covariance operation.
+
+        Parameters
+        ----------
+        items : dict
+            Mapping lvalues->rvalues->multiplicator.
+
+        Returns
+        -------
+        None.
+
+        """
+        inners = self.vars['inner']
+        for lv, rvs in items.items():
+            lv_is_inner = lv in inners
+            for rv, mult in rvs.items():
+                name = None
+                try:
+                    val = float(mult)
+                    active = False
+                except (TypeError, ValueError):
+                    active = True
+                    if mult is not None:
+                        if mult != self.symb_starting_values:
+                            name = mult
+                        else:
+                            active = False
+                    val = None
+                rv_is_inner = rv in inners
+                if name is None:
+                    self.n_param_cov += 1
+                    name = '_c%s' % self.n_param_cov
+                if lv_is_inner and rv_is_inner:
+                    mx = self.mx_psi
+                    rows, cols = self.names_psi
+                else:
+                    mx = self.mx_d
+                    rows, cols = self.names_d
+                    if lv_is_inner != rv_is_inner:
+                        logging.info('Covariances between _outputs and \
+                                     inner variables are not recommended.')
                 i, j = rows.index(lv), cols.index(rv)
                 ind = (i, j)
                 if i == j:
@@ -442,6 +501,8 @@ class ModelEffects(ModelMeans):
         if type(k) is pd.DataFrame:
             k = k.loc[p_names, p_names].values
         aka = z @ k @ z.T
+        self.mx_z = z
+        self.mx_aka = aka
         self.trace_aka = np.trace(aka)
         s, q = np.linalg.eigh(aka)
         self.mx_s = s[np.newaxis, :]
@@ -455,7 +516,7 @@ class ModelEffects(ModelMeans):
         self.mx_g1 = data[self.vars['observed_exogenous_1']].values.T @ q
         self.mx_g2 = data[self.vars['observed_exogenous_2']].values.T @ q
         self.mx_q = q
-        self.num_m = len(set(self.vars['observed']) -self.vars['latent'])
+        self.num_m = len(set(self.vars['observed']) - self.vars['latent'])
         self.mx_i_n = self.num_m * np.identity(n)
         self.mx_ones_m = n * np.ones((self.num_m, self.num_m))
         self.load_cov(covariance[obs].loc[obs]
@@ -487,7 +548,7 @@ class ModelEffects(ModelMeans):
             r_inv, logdet_r = chol_inv2(r)
             w_inv, logdet_w = self.calc_w_inv(sigma)
         except np.linalg.LinAlgError:
-            return np.nan
+            return np.inf
         mean = self.calc_mean(m)
         center = self.mx_data_transformed - mean
         tr_r = np.trace(r)
@@ -520,7 +581,7 @@ class ModelEffects(ModelMeans):
             r_inv = chol_inv(r)
             w_inv, _ = self.calc_w_inv(sigma)
         except np.linalg.LinAlgError:
-            grad[:] = np.nan
+            grad[:] = np.inf
             return grad
         mean = self.calc_mean(m)
         center = self.mx_data_transformed - mean
@@ -595,7 +656,7 @@ class ModelEffects(ModelMeans):
         wr = [kron_identity(w_inv @ dw, m) + kron_identity(r_inv @ dr, n, True)
               if len(dw.shape) else None for dw, dr in zip(w_grad, r_grad)]
         wr = [wr - i_im * np.trace(dr) if wr is not None else None
-              for wr, dr in zip(wr, r_grad)]                
+              for wr, dr in zip(wr, r_grad)]
         mean_grad = [g.reshape((-1, 1), order="F") if len(g.shape) else None
                      for g in mean_grad]
         prod_means = [g.T @ sigma * tr_r if g is not None else None
@@ -606,9 +667,9 @@ class ModelEffects(ModelMeans):
                 if wr[i] is not None and wr[k] is not None:
                     info[i, k] = np.einsum('ij,ji->', wr[i], wr[k]) / 2
                 if prod_means[i] is not None and mean_grad[k] is not None:
-                    info[i, k] +=  prod_means[i] @ mean_grad[k]
+                    info[i, k] += prod_means[i] @ mean_grad[k]
         fim = info + np.triu(info, 1).T
-        fim = 2 * fim
+        fim = fim
         if inverse:
             fim_inv = np.linalg.pinv(fim)
             return (fim, fim_inv)

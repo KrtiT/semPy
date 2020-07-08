@@ -4,10 +4,10 @@
 
 import pandas as pd
 import numpy as np
-from .model import Model
-from .solver import Solver
-from .utils import chol_inv
-from .stats import calc_se, calc_zvals, calc_pvals
+from model import Model
+from solver import Solver
+from utils import chol_inv
+from stats import calc_se, calc_zvals, calc_pvals
 
 
 class MeanEstimator():

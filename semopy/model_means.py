@@ -4,9 +4,9 @@
 import logging
 import numpy as np
 import pandas as pd
-from .model import Model
+from model import Model
 from collections import defaultdict
-from .utils import chol_inv, chol_inv2, delete_mx, cov
+from utils import chol_inv, chol_inv2, delete_mx, cov
 
 
 class ModelMeans(Model):
@@ -23,7 +23,7 @@ class ModelMeans(Model):
     matrices_names = tuple(list(Model.matrices_names) + ['gamma1', 'gamma2'])
 
     def __init__(self, description: str, mimic_lavaan=False, baseline=False,
-                 intercepts=True):
+                 intercepts=False):
         """
         Instantiate Model with mean-structure.
 
@@ -46,7 +46,7 @@ class ModelMeans(Model):
         intercepts: bool
             If True, intercepts are also modeled. Intercept terms can be
             accessed via "1" symbol in a regression equation, i.e. x1 ~ 1. The
-            default is True.
+            default is False.
 
         Returns
         -------
@@ -187,10 +187,6 @@ class ModelMeans(Model):
         """
         items_super = defaultdict(dict)
         exo_obs = self.vars['observed_exogenous']
-        exo_obs1 = self.vars['observed_exogenous_1']
-        exo_obs2 = self.vars['observed_exogenous_2']
-        output = self.vars['_output']
-        inner = self.vars['inner']
         for lv, rvs in items.items():
             for rv, mult in rvs.items():
                 if rv not in exo_obs:
@@ -225,7 +221,7 @@ class ModelMeans(Model):
                 self.add_param(name=name, matrix=mx, indices=ind, start=val,
                                active=active, symmetric=False,
                                bound=(None, None))
-        super().effect_regression(items_super)    
+        super().effect_regression(items_super)
 
     def load_data(self, data: pd.DataFrame, covariance=None, groups=None):
         """
@@ -259,8 +255,14 @@ class ModelMeans(Model):
             data['1'] = 1.0
         obs = self.vars['observed']
         self.mx_data = data[obs].values
+        if len(self.mx_data.shape) != 2:
+            self.mx_data = self.mx_data[:, np.newaxis]
         self.mx_g1 = data[self.vars['observed_exogenous_1']].values.T
+        if len(self.mx_g1.shape) != 2:
+            self.mx_g1 = self.mx_g1[np.newaxis, :]
         self.mx_g2 = data[self.vars['observed_exogenous_2']].values.T
+        if len(self.mx_g2.shape) != 2:
+            self.mx_g2 = self.mx_g2[np.newaxis, :]
         self.load_cov(covariance.loc[obs, obs]
                       if covariance is not None else cov(self.mx_data))
 
@@ -434,12 +436,12 @@ class ModelMeans(Model):
             try:
                 sigma_inv, logdet_sigma = chol_inv2(sigma)
             except np.linalg.LinAlgError:
-                return np.nan
+                return np.inf
             tr += np.einsum('ij,ji->', s, sigma_inv)
             logdet += len(rows) * logdet_sigma
         loss = tr + logdet
         if loss < 0:  # Realistically should never happen.
-            return np.nan
+            return np.inf
         return loss
 
     def grad_fiml(self, x: np.ndarray):
@@ -469,7 +471,7 @@ class ModelMeans(Model):
                 sigma_inv = chol_inv(sigma)
             except np.linalg.LinAlgError:
                 t = np.zeros(len(grad))
-                t[:] = np.nan
+                t[:] = np.inf
                 return t
             center = mx - np.delete(mean_full, inds, axis=0)[:, rows]
             s = center @ center.T

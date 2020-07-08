@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Inspector module helps researcher fetch information on estimates."""
-from .model import Model
+from model import Model
 import pandas as pd
 import numpy as np
-from . import stats
+import stats
 
 
 def inspect(model, mode='list', what='est', information='expected'):
@@ -312,7 +312,7 @@ def inspect_list(model: Model, information='expected'):
     if hasattr(model, 'mx_d'):
         mx = model.mx_d
         names = model.names_d
-        op = '~R~'
+        op = '~~'
         for name, param in model.parameters.items():
             for loc in param.locations:
                 if loc.matrix is mx:

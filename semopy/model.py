@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """semopy 2.0 model module without random effects."""
-from .utils import chol_inv, chol_inv2, cov, delete_mx
+from utils import chol_inv, chol_inv2, cov, delete_mx
 from itertools import combinations, chain
-from .constraints import parse_constraint
+from constraints import parse_constraint
 from collections import defaultdict
 from dataclasses import dataclass
-from .model_base import ModelBase
-from .solver import Solver
-from . import startingvalues
+from model_base import ModelBase
+from solver import Solver
+import startingvalues
 import pandas as pd
 import numpy as np
 import logging
@@ -506,6 +506,35 @@ class Model(ModelBase):
                 self.add_param(name, matrix=mx, indices=ind, start=val,
                                active=active, symmetric=symm, bound=bound)
 
+    def inspect(self, mode='list', what='est', information='expected'):
+        """
+        Get fancy view of model parameters estimates.
+    
+        Parameters
+        ----------
+        model : str
+            Model.
+        mode : str, optional
+            If 'list', pd.DataFrame with estimates and p-values is returned.
+            If 'mx', a dictionary of matrices is returned. The default is 'list'.
+        what : TYPE, optional
+            Used only if mode == 'mx'. If 'est', matrices have estimated
+            values. If 'start', matrices have starting values. If 'name', matrices
+            have names inplace of their parameters. The default is 'est'.
+        information : str
+            If 'expected', expected Fisher information is used. Otherwise,
+            observed information is employed. No use if mode is not 'list'.
+            The default is 'expected'.
+    
+        Returns
+        -------
+        pd.DataFrame | dict
+            Dataframe or mapping matrix_name->matrix.
+    
+        """
+        from inspector import inspect
+        return inspect(self, mode=mode, what=what, information=information)
+
     def operation_start(self, operation):
         """
         Works through START command.
@@ -675,6 +704,8 @@ class Model(ModelBase):
                 data.loc[inds, group] = g
         obs = self.vars['observed']
         self.mx_data = data[obs].values
+        if len(self.mx_data.shape) != 2:
+            self.mx_data = self.mx_data[:, np.newaxis]
         self.load_cov(covariance.loc[obs, obs].values
                       if covariance is not None else cov(self.mx_data))
 
@@ -695,6 +726,8 @@ class Model(ModelBase):
         if type(covariance) is pd.DataFrame:
             obs = self.vars['observed']
             covariance = covariance.loc[obs, obs].values
+        if covariance.size == 1:
+            covariance.resize((1, 1))
         self.mx_cov = covariance
         try:
             self.mx_cov_inv, self.cov_logdet = chol_inv2(self.mx_cov)
@@ -900,7 +933,7 @@ class Model(ModelBase):
             Table with imputed data.
 
         """
-        from .imputer import get_imputer
+        from imputer import get_imputer
         imp = get_imputer(self)(self, x, factors=factors)
         res = imp.fit(solver='SLSQP')
         data = imp.get_fancy()
@@ -995,12 +1028,12 @@ class Model(ModelBase):
             sigma, _ = self.calc_sigma()
             inv_sigma, logdet_sigma = chol_inv2(sigma)
         except np.linalg.LinAlgError:
-            return np.nan
+            return np.inf
         log_det_ratio = logdet_sigma - self.cov_logdet
         tr = np.einsum('ij,ji->', self.mx_cov, inv_sigma) - sigma.shape[0]
         loss = tr + log_det_ratio
         if loss < 0:  # Realistically should never happen.
-            return np.nan
+            return np.inf
         return loss
 
     def grad_mlw(self, x: np.ndarray):
@@ -1024,7 +1057,7 @@ class Model(ModelBase):
             inv_sigma = chol_inv(sigma)
         except np.linalg.LinAlgError:
             t = np.zeros((len(x),))
-            t[:] = np.nan
+            t[:] = np.inf
             return t
         sigma_grad = self.calc_sigma_grad(m, c)
         cs = inv_sigma - inv_sigma @ self.mx_cov @ inv_sigma
@@ -1059,12 +1092,12 @@ class Model(ModelBase):
             try:
                 sigma_inv, logdet_sigma = chol_inv2(sigma)
             except np.linalg.LinAlgError:
-                return np.nan
+                return np.inf
             tr += np.einsum('ij,ji->', mx, sigma_inv)
             logdet += n * logdet_sigma
         loss = tr + logdet
         if loss < 0:  # Realistically should never happen.
-            return np.nan
+            return np.inf
         return loss
 
     def grad_fiml(self, x: np.ndarray):
@@ -1092,7 +1125,7 @@ class Model(ModelBase):
                 sigma_inv = chol_inv(sigma)
             except np.linalg.LinAlgError:
                 t = np.zeros(len(grad))
-                t[:] = np.nan
+                t[:] = np.inf
                 return t
             t = sigma_inv @ mx @ sigma_inv
             for i, g in enumerate(sigma_grad):
@@ -1125,7 +1158,7 @@ class Model(ModelBase):
         try:
             sigma, _ = self.calc_sigma()
         except np.linalg.LinAlgError:
-            return np.nan
+            return np.inf
         t = sigma - self.mx_cov
         loss = np.einsum('ij,ij->', t, t)
         return loss
@@ -1150,7 +1183,7 @@ class Model(ModelBase):
             sigma, (m, c) = self.calc_sigma()
         except np.linalg.LinAlgError:
             t = np.zeros((len(x),))
-            t[:] = np.nan
+            t[:] = np.inf
             return t
         sigma_grad = self.calc_sigma_grad(m, c)
         t = sigma - self.mx_cov
@@ -1180,7 +1213,7 @@ class Model(ModelBase):
         try:
             sigma, _ = self.calc_sigma()
         except np.linalg.LinAlgError:
-            return np.nan
+            return np.inf
         t = sigma @ self.mx_cov_inv - self.mx_covlike_identity
         return np.einsum('ij,ji->', t, t)
 
@@ -1204,7 +1237,7 @@ class Model(ModelBase):
             sigma, (m, c) = self.calc_sigma()
         except np.linalg.LinAlgError:
             t = np.zeros((len(x),))
-            t[:] = np.nan
+            t[:] = np.inf
             return t
         sigma_grad = self.calc_sigma_grad(m, c)
         t = self.mx_cov_inv @ \

@@ -201,7 +201,7 @@ def start_d(model, lval: str, rval: str):
         Starting value.
 
     """
-    return 0.1
+    return 1.0
 
 def start_v(model, lval: str, rval: str):
     """
