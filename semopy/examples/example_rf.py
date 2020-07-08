@@ -4,11 +4,11 @@
 
 Correct parameter estimates:
        lval  op  rval     Value
-        0    x2   ~  eta1  0.492118
-        1  eta2   ~    x1  2.553225
-        2  eta2   ~    x2 -1.722126
-        3  eta1  =~    y2 -0.952966
-        4  eta2  =~    y4 -1.921717
+    0    x2   ~  eta1  2.008729
+    1  eta2   ~  eta1  2.879663
+    2    x1   ~  eta1 -2.292444
+    3  eta1  =~    y2  2.974733
+    4  eta2  =~    y4 -1.246382
 Notice that get_data() returns tuple: dataset and K matrix.
 """
 import pandas as pd
@@ -16,7 +16,8 @@ import pandas as pd
 __desc = '''eta1 =~ y1 + y2
 eta2 =~ y3 + y4
 x2 ~ eta1
-eta2 ~ x1 + x2'''
+eta2 ~ eta1
+x1 ~ eta1'''
 
 __filename = '%s/example_rf_data.csv' % '/'.join(__file__.split('/')[:-1])
 __filename_k = '%s/example_rf_kinship.csv' % '/'.join(__file__.split('/')[:-1])
@@ -47,4 +48,6 @@ def get_data():
     """
     data = pd.read_csv(__filename, index_col=0)
     data['group'] = data.index
-    return data, pd.read_csv(__filename_k, index_col=0)
+    k = pd.read_csv(__filename_k, index_col=0)
+    k.columns = list(map(int, k.columns))
+    return data, k

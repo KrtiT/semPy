@@ -200,7 +200,7 @@ class ModelEffects(ModelMeans):
             Information on optimization process.
 
         """
-        self.load(data=data, cov=cov, group=group,
+        self.load(data=data, cov=cov, group=group, k=k,
                   clean_slate=clean_slate)
         if obj == 'MatNorm':
             if not hasattr(self, 'mx_data'):
@@ -499,7 +499,11 @@ class ModelEffects(ModelMeans):
             j = p_names.index(germ)
             z[i, j] = 1.0
         if type(k) is pd.DataFrame:
-            k = k.loc[p_names, p_names].values
+            try:
+                k = k.loc[p_names, p_names].values
+            except KeyError:
+                raise KeyError("Certain groups in K differ from those "\
+                                "provided in a dataset.")
         aka = z @ k @ z.T
         self.mx_z = z
         self.mx_aka = aka

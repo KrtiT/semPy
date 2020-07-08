@@ -537,10 +537,10 @@ class ModelMeans(Model):
             try:
                 fim_inv = chol_inv(fim)
             except np.linalg.LinAlgError:
-                logging.warn("Fisher Information Matrix is not PD. \
-                             Moore-Penrose inverse will be used instead of \
-                            Cholesky decomposition. See \
-                                10.1109/TSP.2012.2208105.")
+                logging.warn("Fisher Information Matrix is not PD."\
+                             "Moore-Penrose inverse will be used instead of "\
+                             "Cholesky decomposition. See "\
+                              "10.1109/TSP.2012.2208105.")
                 fim_inv = np.linalg.pinv(fim)
             return (fim, fim_inv)
         return fim
