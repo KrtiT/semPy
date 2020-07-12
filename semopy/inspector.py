@@ -354,8 +354,12 @@ def inspect_list(model: Model, information='expected'):
                         pval = '-'
                     res.append((a, op, b, val, std, zs, pval))
 
-    return pd.DataFrame(res, columns=['lval', 'op', 'rval', 'Estimate',
-                                      'Std. Err', 'z-value', 'p-value'])
+    return pd.DataFrame(res,
+                        columns=['lval', 'op', 'rval', 'Estimate', 'Std. Err',
+                                 'z-value', 'p-value']).sort_values(by=['op',
+                                                                        'lval',
+                                                                        'rval']
+                                                                        )
 
 
 def _set_values(params: dict, ref: np.ndarray, start=True):

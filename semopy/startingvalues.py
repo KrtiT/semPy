@@ -201,7 +201,7 @@ def start_d(model, lval: str, rval: str):
         Starting value.
 
     """
-    return 1.0
+    return start_theta(model, lval, rval)
 
 def start_v(model, lval: str, rval: str):
     """
@@ -256,7 +256,7 @@ def start_data_imp(model, lval: str, rval: str):
     mx = model.mod.mx_data
     return np.nanmean(mx[:, i])
 
-def start_g1_imp(model, lval: str, rval: str):
+def start_g_imp(model, lval: str, rval: str):
     """
     Calculate starting value for parameter in data given data in model.
 
@@ -276,7 +276,7 @@ def start_g1_imp(model, lval: str, rval: str):
         Starting value.
 
     """
-    obs = model.mod.vars['observed_exogenous_1']
+    obs = model.mod.vars['observed_exogenous']
     try:
         i = obs.index(rval)
     except ValueError:
@@ -284,33 +284,6 @@ def start_g1_imp(model, lval: str, rval: str):
     mx = model.mod.mx_g1
     return np.nanmean(mx[i, :])
 
-def start_g2_imp(model, lval: str, rval: str):
-    """
-    Calculate starting value for parameter in data given data in model.
-
-    For Imputer -- just calculates mean.
-    Parameters
-    ----------
-    model : Model
-        Model instance.
-    lval : str
-        L-value name.
-    rval : str
-        R-value name.
-
-    Returns
-    -------
-    float
-        Starting value.
-
-    """
-    obs = model.mod.vars['observed_exogenous_2']
-    try:
-        i = obs.index(rval)
-    except ValueError:
-        return 0.0
-    mx = model.mod.mx_g2
-    return np.nanmean(mx[i, :])
 
 def start_beta_imp(model, lval: str, rval: str):
     """
