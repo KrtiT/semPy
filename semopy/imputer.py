@@ -2,12 +2,12 @@
 # -*- coding: utf-8 -*-
 """Internal imputer module."""
 
-from model import Model
-from model_means import ModelMeans
-from model_effects import ModelEffects
-from solver import Solver
-from utils import chol_inv
-import startingvalues
+from .model import Model
+from .model_means import ModelMeans
+from .model_effects import ModelEffects
+from .solver import Solver
+from .utils import chol_inv
+from . import startingvalues
 import pandas as pd
 import numpy as np
 

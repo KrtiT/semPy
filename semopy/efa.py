@@ -9,14 +9,13 @@ their loadings via clustering analysis.
 """
 import numpy as np
 import pandas as pd
-import hdbscan
-from model import Model
-from inspector import inspect
+from .model import Model
+from .inspector import inspect
 from collections import defaultdict
 from sklearn.cluster import OPTICS, AffinityPropagation
 from itertools import permutations
 from copy import deepcopy
-from utils import cor
+from .utils import cor
 
 
 def find_latents(data: pd.DataFrame, min_loadings=2, mx_cor=None,

@@ -4,10 +4,10 @@
 import logging
 import numpy as np
 import pandas as pd
-from model import Model
+from .model import Model
 from collections import defaultdict
 from scipy.linalg import block_diag
-from utils import chol_inv, chol_inv2, delete_mx, cov
+from .utils import chol_inv, chol_inv2, delete_mx, cov
 
 
 class ModelMeans(Model):

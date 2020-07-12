@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """semopy 2.0 model module without random effects."""
-from utils import chol_inv, chol_inv2, cov, delete_mx
+from .utils import chol_inv, chol_inv2, cov, delete_mx
 from itertools import combinations, chain
-from constraints import parse_constraint
+from .constraints import parse_constraint
 from collections import defaultdict
 from dataclasses import dataclass
-from model_base import ModelBase
-from solver import Solver
-import startingvalues
+from .model_base import ModelBase
+from .solver import Solver
+from . import startingvalues
 import pandas as pd
 import numpy as np
 import logging
@@ -933,7 +933,7 @@ class Model(ModelBase):
             Table with imputed data.
 
         """
-        from imputer import get_imputer
+        from .imputer import get_imputer
         imp = get_imputer(self)(self, x, factors=factors)
         res = imp.fit(solver='SLSQP')
         data = imp.get_fancy()

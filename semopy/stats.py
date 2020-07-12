@@ -2,7 +2,7 @@
 """Statistic and fit indices."""
 from scipy.stats import norm, chi2
 from collections import namedtuple
-from model import Model
+from .model import Model
 import pandas as pd
 import numpy as np
 

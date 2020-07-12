@@ -2,9 +2,9 @@
 """Random Effects SEM."""
 import pandas as pd
 import numpy as np
-from model_means import ModelMeans
-from utils import chol_inv, chol_inv2, cov, kron_identity
-from solver import Solver
+from .model_means import ModelMeans
+from .utils import chol_inv, chol_inv2, cov, kron_identity
+from .solver import Solver
 import logging
 
 

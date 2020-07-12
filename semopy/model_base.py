@@ -1,7 +1,7 @@
 """Base model module that contains ModelBase for lienear SEM models."""
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from parser import parse_desc
+from .parser import parse_desc
 import logging
 
 
