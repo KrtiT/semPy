@@ -1,5 +1,6 @@
 """Different utility functions for internal usage."""
 import scipy.linalg.lapack as lapack
+import pandas as pd
 import numpy as np
 
 
@@ -158,3 +159,47 @@ def chol_inv2(x: np.ndarray):
     c += c.T
     np.fill_diagonal(c, c.diagonal() / 2)
     return c, logdet
+
+
+def compare_results(model, true: pd.DataFrame, error='relative'):
+    """
+    Compare parameter estimates in model to parameter values in a DataFrame.
+
+    Parameters
+    ----------
+    model : Model
+        Model instance.
+    true : pd.DataFrame
+        DataFrame with operations and expected estimates. Should have "lval",
+        "op", "rval", "Value" columns in this particular order.
+    error : str, optional
+        If 'relative', relative errors are calculated. Absolute errors are
+        calculated otherwise. The default is 'relative'.
+
+    Raises
+    ------
+    Exception
+        Rise when operation present in true is not present in the model.
+
+    Returns
+    -------
+    errs : list
+        List of errors.
+
+    """
+    ins = model.inspect(information=None)
+    errs = list()
+    for row in true.iterrows():
+        lval, op, rval, value = row[1].values[:4]
+        if op == '=~':
+            op = '~'
+            lval, rval = rval, lval
+        est = ins[(ins.lval == lval) & (ins.op == op) & (ins.rval == rval)]
+        if len(est) == 0:
+            raise Exception(f'Unknown estimate: {row}.')
+        est = est.Estimate.values[0]
+        if error == 'relative':
+            errs.append(abs((value - est) / est))
+        else:
+            errs.append(abs(value - est))
+    return errs

@@ -1,7 +1,7 @@
 """Base model module that contains ModelBase for lienear SEM models."""
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from .parser import parse_desc
+from parser import parse_desc
 import logging
 
 
@@ -46,7 +46,10 @@ class ModelBase(ABC):
         self.dict_operations[self.symb_force_variables] = self.operation_force
         self.dict_operations[self.symb_define] = self.operation_define
         self.description = description
-        effects, operations = parse_desc(description)
+        if type(description) is str:
+            effects, operations = parse_desc(description)
+        else:
+            effects, operations = description
         self.classify_variables(effects, operations)
         self.post_classification(effects)
         self.create_parameters(effects)

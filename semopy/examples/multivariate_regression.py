@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Univariate regression example model.
+"""Multivariate regression example model.
 
 True parameter values are 2, 6, -10 (regression parameters):
     y = 2*x1 + 6*x2 - 10*x3 + eps

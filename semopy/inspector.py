@@ -4,7 +4,7 @@
 from .model import Model
 import pandas as pd
 import numpy as np
-import stats
+from . import stats
 
 
 def inspect(model, mode='list', what='est', information='expected'):
@@ -24,8 +24,8 @@ def inspect(model, mode='list', what='est', information='expected'):
         have names inplace of their parameters. The default is 'est'.
     information : str
         If 'expected', expected Fisher information is used. Otherwise,
-        observed information is employed. No use if mode is not 'list'.
-        The default is 'expected'.
+        observed information is employed. If None, the no p-values are
+        calculated. No effect is what is 'mx'. The default is 'expected'.
 
     Returns
     -------
@@ -115,8 +115,6 @@ def inspect_matrices(model: Model, what='est'):
             matrix = _set_values(model.parameters, matrix, what == 'start')
         ret[name] = pd.DataFrame(matrix, columns=names[1],
                                  index=names[0])
-        ret[name] = pd.DataFrame(matrix, columns=names[1],
-                                 index=names[0])
 
     if hasattr(model, 'mx_d'):
         matrix = model.mx_d
@@ -126,8 +124,13 @@ def inspect_matrices(model: Model, what='est'):
             matrix = _set_values(model.parameters, matrix, what == 'start')
         ret[name] = pd.DataFrame(matrix, columns=names[1],
                                  index=names[0])
-        ret[name] = pd.DataFrame(matrix, columns=names[1],
-                                 index=names[0])
+
+    if hasattr(model, 'mx_v'):
+        matrix = model.mx_v
+        name = 'v'
+        if what != 'est':
+            matrix = _set_values(model.parameters, matrix, what == 'start')
+        ret[name] = matrix[0, 0]
 
     if hasattr(model, 'mx_data_imp'):
         matrix = model.mx_data_imp
@@ -151,7 +154,8 @@ def inspect_list(model: Model, information='expected'):
         Model.
     information : str
         If 'expected', expected Fisher information is used. Otherwise,
-        observed information is employed. The default is 'expected'.
+        observed information is employed. If None, the no p-values are
+        calculated. The default is 'expected'.
 
     Returns
     -------
@@ -164,9 +168,13 @@ def inspect_list(model: Model, information='expected'):
                         don''t exist')
     res = list()
     vals = model.param_vals
-    se = stats.calc_se(model, information=information)
-    zscores = stats.calc_zvals(model, std_errors=se)
-    pvals = stats.calc_pvals(model, z_scores=zscores)
+    if information is not None:
+        se = stats.calc_se(model, information=information)
+        zscores = stats.calc_zvals(model, std_errors=se)
+        pvals = stats.calc_pvals(model, z_scores=zscores)
+    else:
+        se = ['-'] * len(vals)
+        zscores = pvals = se
     keys = list(model.parameters.keys())
     keys_active = [k for k in keys if model.parameters[k].active]
     # Beta
@@ -192,6 +200,7 @@ def inspect_list(model: Model, information='expected'):
                         pval = '-'
                     res.append((a, op, b, val, std, zs, pval))
 
+    means = list()
     # Gamma1
     if hasattr(model, 'mx_gamma1'):
         mx = model.mx_gamma1
@@ -213,7 +222,10 @@ def inspect_list(model: Model, information='expected'):
                         std = '-'
                         zs = '-'
                         pval = '-'
-                    res.append((a, op, b, val, std, zs, pval))
+                    if b == '1':
+                        means.append((a, op, b, val, std, zs, pval))
+                    else:
+                        res.append((a, op, b, val, std, zs, pval))
 
     # Gamma2
     if hasattr(model, 'mx_gamma2'):
@@ -236,7 +248,10 @@ def inspect_list(model: Model, information='expected'):
                         std = '-'
                         zs = '-'
                         pval = '-'
-                    res.append((a, op, b, val, std, zs, pval))
+                    if b == '1':
+                        means.append((a, op, b, val, std, zs, pval))
+                    else:
+                        res.append((a, op, b, val, std, zs, pval))
 
     # Lambda
     if hasattr(model, 'mx_lambda'):
@@ -260,6 +275,8 @@ def inspect_list(model: Model, information='expected'):
                         zs = '-'
                         pval = '-'
                     res.append((a, op, b, val, std, zs, pval))
+    res.extend(means)
+    means.clear()
     # Psi
     if hasattr(model, 'mx_psi'):
         mx = model.mx_psi
@@ -312,7 +329,7 @@ def inspect_list(model: Model, information='expected'):
     if hasattr(model, 'mx_d'):
         mx = model.mx_d
         names = model.names_d
-        op = '~~'
+        op = 'RF'
         for name, param in model.parameters.items():
             for loc in param.locations:
                 if loc.matrix is mx:
@@ -330,7 +347,28 @@ def inspect_list(model: Model, information='expected'):
                         zs = '-'
                         pval = '-'
                     res.append((a, op, b, val, std, zs, pval))
-
+    # v -- Variance of random effects variable
+    if hasattr(model, 'mx_v'):
+        mx = model.mx_v
+        names = model.names_v
+        op = 'RF(v)'
+        for name, param in model.parameters.items():
+            for loc in param.locations:
+                if loc.matrix is mx:
+                    ind = loc.indices
+                    a, b = names[0][ind[0]], names[1][ind[1]]
+                    if param.active:
+                        i = keys_active.index(name)
+                        val = vals[i]
+                        std = se[i]
+                        zs = zscores[i]
+                        pval = pvals[i]
+                    else:
+                        val = param.start
+                        std = '-'
+                        zs = '-'
+                        pval = '-'
+                    res.append((a, op, b, val, std, zs, pval))
     # Data_imp -- Matrix of imputed data
     if hasattr(model, 'mx_data_imp'):
         mx = model.mx_data_imp
@@ -356,10 +394,7 @@ def inspect_list(model: Model, information='expected'):
 
     return pd.DataFrame(res,
                         columns=['lval', 'op', 'rval', 'Estimate', 'Std. Err',
-                                 'z-value', 'p-value']).sort_values(by=['op',
-                                                                        'lval',
-                                                                        'rval']
-                                                                        )
+                                 'z-value', 'p-value'])
 
 
 def _set_values(params: dict, ref: np.ndarray, start=True):

@@ -8,7 +8,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from .model_base import ModelBase
 from .solver import Solver
-from . import startingvalues
+import startingvalues
 import pandas as pd
 import numpy as np
 import logging
@@ -532,7 +532,7 @@ class Model(ModelBase):
             Dataframe or mapping matrix_name->matrix.
     
         """
-        from inspector import inspect
+        from .inspector import inspect
         return inspect(self, mode=mode, what=what, information=information)
 
     def operation_start(self, operation):
@@ -814,7 +814,7 @@ class Model(ModelBase):
             self.prepare_params()
 
     def fit(self, data=None, cov=None, obj='MLW', solver='SLSQP', groups=None,
-            clean_slate=False):
+            clean_slate=False, regularization=None):
         """
         Fit model to data.
 
@@ -836,6 +836,10 @@ class Model(ModelBase):
             If False, successive fits will be performed with previous results
             as starting values. If True, parameter vector is reset each time
             prior to optimization. The default is False.
+        regularization
+            Special structure as returend by create_regularization function.
+            If not None, then a regularization will be applied to a certain
+            parameters in the model. The default is None.
 
         Raises
         ------
@@ -854,7 +858,7 @@ class Model(ModelBase):
             if not hasattr(self, 'mx_data'):
                 raise Exception('Full data must be supplied for FIML')
             self.prepare_fiml()
-        fun, grad = self.get_objective(obj)
+        fun, grad = self.get_objective(obj, regularization=regularization)
         solver = Solver(solver, fun, grad, self.param_vals,
                         constrs=self.constraints,
                         bounds=self.get_bounds())
@@ -865,7 +869,7 @@ class Model(ModelBase):
         self.last_result = res
         return res
 
-    def get_objective(self, name: str):
+    def get_objective(self, name: str, regularization=None):
         """
         Retrieve objective function and its gradient by name.
 
@@ -873,6 +877,10 @@ class Model(ModelBase):
         ----------
         name : str
             Name of objective function.
+        regularization
+            Special structure as returend by create_regularization function.
+            If not None, then a regularization will be applied to a certain
+            parameters in the model. The default is None.
 
         Raises
         ------
@@ -886,7 +894,16 @@ class Model(ModelBase):
 
         """
         try:
-            return self.objectives[name]
+            if regularization is None:
+                return self.objectives[name]
+            else:
+                fun, grad = self.objectives[name]
+                regu, regu_grad = regularization
+                if regu_grad is None:
+                    return lambda x: fun(x) + regu(x), None
+                else:
+                    return lambda x: fun(x) + regu(x),\
+                        lambda x: grad(x) + regu_grad(x)
         except KeyError:
             raise KeyError(f'{name} is unknown objective function.')
 

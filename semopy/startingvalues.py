@@ -201,13 +201,13 @@ def start_d(model, lval: str, rval: str):
         Starting value.
 
     """
-    return start_theta(model, lval, rval)
+    return 1.0
+    # return start_theta(model, lval, rval)
 
 def start_v(model, lval: str, rval: str):
     """
     Calculate starting value for parameter in data given data in model.
 
-    In future a sophisticated procedure will be provided.
     Parameters
     ----------
     model : Model
@@ -224,6 +224,7 @@ def start_v(model, lval: str, rval: str):
 
     """
     return 1.0
+  
 
 '''---------------------------------IMPUTER---------------------------------'''
 
@@ -442,6 +443,58 @@ def start_theta_imp(model, lval: str, rval: str):
     """
     mx = model.mod.mx_theta
     rows, cols = model.mod.names_theta
+    i, j = rows.index(lval), cols.index(rval)
+    v = mx[i, j]
+    return v
+
+def start_d_imp(model, lval: str, rval: str):
+    """
+    Calculate starting value for parameter in data given data in model.
+
+    For Imputer -- just copies values from original data.
+    Parameters
+    ----------
+    model : Model
+        Model instance.
+    lval : str
+        L-value name.
+    rval : str
+        R-value name.
+
+    Returns
+    -------
+    float
+        Starting value.
+
+    """
+    mx = model.mod.mx_d
+    rows, cols = model.mod.names_d
+    i, j = rows.index(lval), cols.index(rval)
+    v = mx[i, j]
+    return v
+
+def start_v_imp(model, lval: str, rval: str):
+    """
+    Calculate starting value for parameter in data given data in model.
+
+    For Imputer -- just copies values from original data.
+    Parameters
+    ----------
+    model : Model
+        Model instance.
+    lval : str
+        L-value name.
+    rval : str
+        R-value name.
+
+    Returns
+    -------
+    float
+        Starting value.
+
+    """
+    mx = model.mod.mx_v
+    rows, cols = model.mod.names_v
     i, j = rows.index(lval), cols.index(rval)
     v = mx[i, j]
     return v

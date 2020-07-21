@@ -330,7 +330,7 @@ class ModelMeans(Model):
             self.prepare_fiml()
 
     def fit(self, data=None, cov=None, obj='REML', solver='SLSQP', groups=None,
-            clean_slate=False):
+            clean_slate=False, regularization=None):
         """
         Fit model to data.
 
@@ -352,6 +352,10 @@ class ModelMeans(Model):
             If False, successive fits will be performed with previous results
             as starting values. If True, parameter vector is reset each time
             prior to optimization. The default is False.
+        regularization
+            Special structure as returend by create_regularization function.
+            If not None, then a regularization will be applied to a certain
+            parameters in the model. The default is None.
 
         Raises
         ------
@@ -369,16 +373,18 @@ class ModelMeans(Model):
         if obj == 'REML':
             self.calc_fim = self.calc_fim_reml
             res = super().fit(data=data, cov=cov, obj='REML', solver=solver,
-                              groups=groups, clean_slate=clean_slate)
+                              groups=groups, clean_slate=clean_slate,
+                              regularization=regularization)
             sigma, (self.mx_m, self.mx_c) = self.calc_sigma()
             self.mx_sigma_inv = chol_inv(sigma)
-            res_m = super().fit(data=data, cov=cov, obj='GLS', solver=solver,
+            res_m = super().fit(obj='GLS', solver=solver,
                                 groups=groups, clean_slate=False)
             return res, res_m
         elif obj == 'ML':
             self.calc_fim = self.calc_fim_ml
             res = super().fit(data=data, cov=cov, obj='FIML', solver=solver,
-                              groups=groups, clean_slate=clean_slate)
+                              groups=groups, clean_slate=clean_slate,
+                              regularization=regularization)
             return res
         else:
             raise NotImplementedError(f"Unknown method {{obj}}.")
@@ -533,7 +539,7 @@ class ModelMeans(Model):
 
         """
         self.update_matrices(x)
-        sigma, (m, _) = self.calc_sigma()
+        sigma, _ = self.calc_sigma()
         tr = 0
         logdet = 0
         try:
@@ -735,9 +741,11 @@ class ModelMeans(Model):
                 mx_fixed_inv = chol_inv(mx_fixed)
             except np.linalg.LinAlgError:
                 logging.warning("Fisher Information Matrix is not PD."\
-                                "Moore-Penrose inverse will be used instead of "\
+                                " Moore-Penrose inverse will be used instead of "\
                                 "Cholesky decomposition. See "\
                                 "10.1109/TSP.2012.2208105.")
+                mx_var_inv = np.linalg.pinv(mx_var)
+                mx_fixed_inv = np.linalg.pinv(mx_fixed)
             fim_inv = block_diag(mx_fixed_inv, mx_var_inv)
             fim_inv = fim_inv[inds, :][:, inds]
             return (fim, fim_inv)
