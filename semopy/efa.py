@@ -9,7 +9,6 @@ their loadings via clustering analysis.
 """
 import numpy as np
 import pandas as pd
-import hdbscan
 from .model import Model
 from .inspector import inspect
 from collections import defaultdict

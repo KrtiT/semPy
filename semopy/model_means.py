@@ -249,20 +249,17 @@ class ModelMeans(Model):
         """
         if groups is None:
             groups = list()
-            data = data.copy()
+        obs = self.vars['observed']
         for group in groups:
             for g in data[group].unique():
                 inds = data[group] == g
                 if sum(inds) == 1:
                     continue
-                data[inds] -= data[inds].mean()
+                data.loc[inds, obs] -= data.loc[inds, obs].mean()
                 data.loc[inds, group] = g
-        if groups and self.intercepts:
-            data['1'] = 1.0
-        obs = self.vars['observed']
-        self.mx_data_orig = data[obs].values
-        if len(self.mx_data_orig.shape) != 2:
-            self.mx_data_orig = self.mx_data_orig[:, np.newaxis]
+        self.mx_data = data[obs].values
+        if len(self.mx_data.shape) != 2:
+            self.mx_data = self.mx_data[:, np.newaxis]
         self.mx_g = data[self.vars['observed_exogenous']].values.T
         if len(self.mx_g.shape) != 2:
             self.mx_g = self.mx_g[np.newaxis, :]
@@ -277,9 +274,9 @@ class ModelMeans(Model):
                 break
         d = np.diag(d)[rank_dec:, :]
         self.mx_s = d @ q.T
-        self.num_nt = self.mx_data_orig.shape[0]
-        self.mx_data = self.mx_s @ self.mx_data_orig
-        self.mx_data_square = self.mx_data.T @ self.mx_data
+        self.num_nt = self.mx_data.shape[0]
+        self.mx_data_transformed = self.mx_s @ self.mx_data
+        self.mx_data_square = self.mx_data_transformed.T @ self.mx_data_transformed
         self.load_cov(covariance.loc[obs, obs]
                       if covariance is not None else cov(self.mx_data))
 
@@ -311,10 +308,11 @@ class ModelMeans(Model):
             if not hasattr(self, 'mx_data'):
                 raise Exception("Data must be provided.")
             return
+        else:
+            data = data.copy()
         obs = self.vars['observed']
         exo = self.vars['observed_exogenous']
         if self.intercepts:
-            data = data.copy()
             data['1'] = 1.0
         cols = data.columns
         missing = (set(obs) | set(exo)) - set(cols)
@@ -330,7 +328,7 @@ class ModelMeans(Model):
             self.prepare_fiml()
 
     def fit(self, data=None, cov=None, obj='REML', solver='SLSQP', groups=None,
-            clean_slate=False, regularization=None):
+            clean_slate=False):
         """
         Fit model to data.
 
@@ -352,10 +350,6 @@ class ModelMeans(Model):
             If False, successive fits will be performed with previous results
             as starting values. If True, parameter vector is reset each time
             prior to optimization. The default is False.
-        regularization
-            Special structure as returend by create_regularization function.
-            If not None, then a regularization will be applied to a certain
-            parameters in the model. The default is None.
 
         Raises
         ------
@@ -373,8 +367,7 @@ class ModelMeans(Model):
         if obj == 'REML':
             self.calc_fim = self.calc_fim_reml
             res = super().fit(data=data, cov=cov, obj='REML', solver=solver,
-                              groups=groups, clean_slate=clean_slate,
-                              regularization=regularization)
+                              groups=groups, clean_slate=clean_slate)
             sigma, (self.mx_m, self.mx_c) = self.calc_sigma()
             self.mx_sigma_inv = chol_inv(sigma)
             res_m = super().fit(obj='GLS', solver=solver,
@@ -383,8 +376,7 @@ class ModelMeans(Model):
         elif obj == 'ML':
             self.calc_fim = self.calc_fim_ml
             res = super().fit(data=data, cov=cov, obj='FIML', solver=solver,
-                              groups=groups, clean_slate=clean_slate,
-                              regularization=regularization)
+                              groups=groups, clean_slate=clean_slate)
             return res
         else:
             raise NotImplementedError(f"Unknown method {{obj}}.")
@@ -489,7 +481,7 @@ class ModelMeans(Model):
         sigma_inv = self.mx_sigma_inv
         m = self.mx_m
         mean = self.calc_mean(m)
-        mx = self.mx_data_orig
+        mx = self.mx_data
         center = mx - mean.T
         return np.einsum('ij,ji->', center.T @ center, sigma_inv)
 
@@ -512,7 +504,7 @@ class ModelMeans(Model):
         sigma_inv = self.mx_sigma_inv
         m = self.mx_m
         mean = self.calc_mean(m)
-        mx = self.mx_data_orig
+        mx = self.mx_data
         center = mx - mean.T
         t = center @ sigma_inv
         grad = list()
@@ -547,7 +539,7 @@ class ModelMeans(Model):
         except np.linalg.LinAlgError:
             return np.inf
         tr += np.einsum('ij,ji->', self.mx_data_square, sigma_inv)
-        logdet += self.mx_data.shape[0] * logdet_sigma
+        logdet += self.mx_data_transformed.shape[0] * logdet_sigma
         loss = tr + logdet
         if loss < 0:
             return np.inf
@@ -575,7 +567,7 @@ class ModelMeans(Model):
             sigma_inv = chol_inv(sigma)
         except np.linalg.LinAlgError:
             return np.array([np.inf] * len(x))
-        n = self.mx_data.shape[0]
+        n = self.mx_data_transformed.shape[0]
         cs = n * sigma_inv - sigma_inv @ self.mx_data_square @ sigma_inv
         grad = list()
         for dx in sigma_grad:
@@ -776,7 +768,7 @@ class ModelMeans(Model):
         mean_grad = self.calc_mean_grad(m, c)
         inv_sigma = chol_inv(sigma)
         sz = len(sigma_grad)
-        n = self.mx_data_orig.shape[0] / 2
+        n = self.mx_data.shape[0] / 2
         info = np.zeros((sz, sz))
         sgs = [sg @ inv_sigma if len(sg.shape) else None for sg in sigma_grad]
         mgs = [inv_sigma @ g if len(g.shape) else None for g in mean_grad]

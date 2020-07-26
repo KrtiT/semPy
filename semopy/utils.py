@@ -161,7 +161,8 @@ def chol_inv2(x: np.ndarray):
     return c, logdet
 
 
-def compare_results(model, true: pd.DataFrame, error='relative'):
+def compare_results(model, true: pd.DataFrame, error='relative',
+                    ignore_cov=True):
     """
     Compare parameter estimates in model to parameter values in a DataFrame.
 
@@ -175,6 +176,8 @@ def compare_results(model, true: pd.DataFrame, error='relative'):
     error : str, optional
         If 'relative', relative errors are calculated. Absolute errors are
         calculated otherwise. The default is 'relative'.
+    ignore_cov : bool, optional
+        If True, then covariances (~~) are ignored. The default is False.
 
     Raises
     ------
@@ -191,6 +194,8 @@ def compare_results(model, true: pd.DataFrame, error='relative'):
     errs = list()
     for row in true.iterrows():
         lval, op, rval, value = row[1].values[:4]
+        if op == '~~' and ignore_cov:
+            continue
         if op == '=~':
             op = '~'
             lval, rval = rval, lval

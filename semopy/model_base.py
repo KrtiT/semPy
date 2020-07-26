@@ -89,19 +89,16 @@ False
             out_arrows.update(lvs)
             for lv in lvs:
                 senders[lv].add(rv)
-        allvars = out_arrows | in_arrows
-        exogenous = out_arrows - in_arrows
-        outputs = in_arrows - out_arrows
-        endogenous = allvars - exogenous
         for operation in operations[self.symb_define]:
             if operation.params and operation.params[0] == 'latent':
                 latents.update(operation.onto)
         for operation in operations[self.symb_force_variables]:
             if operation.params and operation.params[0] == 'endo':
-                endogenous.update(operation.onto)
-            else:
-                exogenous.update(operation.onto)
-            allvars.update(operation.onto)
+                in_arrows.update(operation.onto)
+        allvars = out_arrows | in_arrows
+        exogenous = out_arrows - in_arrows
+        outputs = in_arrows - out_arrows
+        endogenous = allvars - exogenous
         observed = allvars - latents
         self.vars['all'] = allvars
         self.vars['endogenous'] = endogenous

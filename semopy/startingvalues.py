@@ -150,7 +150,7 @@ def start_gamma1(model, lval: str, rval: str):
     if rval == '1':
         mx = model.mx_data
         i = model.vars['observed'].index(lval)
-        return np.nanmean(mx[:, i])
+        return np.nanmean(mx[:, i]) / 2
     return 0.0
 
 
@@ -178,7 +178,7 @@ def start_gamma2(model, lval: str, rval: str):
     if rval == '1':
         mx = model.mx_data
         i = model.vars['observed'].index(lval)
-        return np.nanmean(mx[:, i])
+        return np.nanmean(mx[:, i]) /  2
     return 0.0
 
 def start_d(model, lval: str, rval: str):

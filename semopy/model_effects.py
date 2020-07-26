@@ -352,6 +352,7 @@ class ModelEffects(ModelMeans):
                     mx = self.mx_psi
                     rows, cols = self.names_psi
                 else:
+                    # continue
                     mx = self.mx_theta
                     rows, cols = self.names_theta
                     if lv_is_inner != rv_is_inner:
@@ -811,6 +812,7 @@ class ModelEffects(ModelMeans):
         self.mx_zkz = zkz
         self.trace_zkz = np.trace(zkz)
         s, q = np.linalg.eigh(zkz)
+        self.mx_q = q
         self.mx_s = s[np.newaxis, :]
         self.mx_s_diag = np.diag(s)
         oq = np.sum(q, axis=0, keepdims=True)
@@ -1009,6 +1011,7 @@ class ModelEffects(ModelMeans):
         sigma, (m, _) = self.calc_sigma()
         try:
             r = self.calc_r(sigma)
+            
             r_inv, logdet_r = chol_inv2(r)
             w_inv, logdet_w = self.calc_w_inv(sigma)
         except np.linalg.LinAlgError:

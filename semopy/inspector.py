@@ -4,7 +4,7 @@
 from .model import Model
 import pandas as pd
 import numpy as np
-from . import stats
+import stats
 
 
 def inspect(model, mode='list', what='est', information='expected'):

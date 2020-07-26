@@ -8,7 +8,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from .model_base import ModelBase
 from .solver import Solver
-import startingvalues
+from . import startingvalues
 import pandas as pd
 import numpy as np
 import logging
@@ -694,15 +694,14 @@ class Model(ModelBase):
         """
         if groups is None:
             groups = list()
-            data = data.copy()
+        obs = self.vars['observed']
         for group in groups:
             for g in data[group].unique():
                 inds = data[group] == g
                 if sum(inds) == 1:
                     continue
-                data[inds] -= data[inds].mean()
+                data.loc[inds, obs] -= data.loc[inds, obs].mean()
                 data.loc[inds, group] = g
-        obs = self.vars['observed']
         self.mx_data = data[obs].values
         if len(self.mx_data.shape) != 2:
             self.mx_data = self.mx_data[:, np.newaxis]
@@ -795,6 +794,8 @@ class Model(ModelBase):
             logging.info('Providing only covariance matrix is unadvised as it\
                          prevents from estimating good starting values for\
                          loadings.')
+        else:
+            data = data.copy()
         cols = data.columns if data is not None else cov.columns
         obs = self.vars['observed']
         missing = set(obs) - set(set(cols))
