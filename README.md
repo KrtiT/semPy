@@ -7,6 +7,8 @@
 ## Features
   - Write down a model description in a user-friendly syntax
   - Estimate model's parameters using a variety of objective functions
+  - Estimate models with population structure via random effects
+  - Restricted Maximum Likelihood
   - Calculate numerous statistics and fit indices
   - Estimate model's parameters in presence of ordinal variables
   - A vast number of settings to fit a researcher's needs
@@ -27,7 +29,7 @@ To specify SEM models, The **semopy** uses the syntax, which is natural to descr
 
 For example, let a linear equation in the structural part of SEM model take the form:
 
-`y = Î²1 x1 + Î²2 x2 + Îµ` 
+`y = β1 x1 + β2 x2 + ε` 
 
 Then, in **semopy** syntax it becomes:
 
@@ -41,11 +43,6 @@ Parameters Î²1, Î²2 are to be estimated by **semopy**. In some cases a user 
 Likewise, if a latent variable Î· is explained by manifest variables y1, y2, y3, then in **semopy** syntax it can be written down this way:
 
 `eta =~ y1 + y2 + y3`
-
-It is also possible to specify a type of variable. If variable x2 is ordinal, we can inform package about it by using a special operator "is":
-
-`x2 is ordinal`
-
 
 ## Quickstart
 
