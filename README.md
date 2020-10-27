@@ -89,7 +89,7 @@ model.inspect()
 Tutorial and overview of **semopy** features are available at [project's website](https://semopy.com).
 
 ## Requirements
-**numpy**, **pandas**, **scipy**, **sympy**
+**numpy**, **pandas**, **scipy**, **sympy**, **sklearn**
 ## Authors
 
 * **Mescheryakov A. Georgy** - *Developer* - [Herrberg](https://gitlab.org/georgy.m) - undegraduate student, SPbSTU
