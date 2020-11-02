@@ -506,8 +506,7 @@ class Model(ModelBase):
                 self.add_param(name, matrix=mx, indices=ind, start=val,
                                active=active, symmetric=symm, bound=bound)
 
-    def inspect(self, mode='list', what='est', information='expected',
-                std_est=False):
+    def inspect(self, mode='list', what='est', information='expected'):
         """
         Get fancy view of model parameters estimates.
     
@@ -526,11 +525,7 @@ class Model(ModelBase):
             If 'expected', expected Fisher information is used. Otherwise,
             observed information is employed. No use if mode is not 'list'.
             The default is 'expected'.
-        std_est : bool
-            If True, standardized coefficients are also returned as Std. Ests
-            col. If it is 'lv', then output variables are not standardized.
-            The default is False.
-
+    
         Returns
         -------
         pd.DataFrame | dict
@@ -538,8 +533,7 @@ class Model(ModelBase):
     
         """
         from .inspector import inspect
-        return inspect(self, mode=mode, what=what, information=information,
-                       std_est=std_est)
+        return inspect(self, mode=mode, what=what, information=information)
 
     def operation_start(self, operation):
         """

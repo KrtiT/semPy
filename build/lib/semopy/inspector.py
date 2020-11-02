@@ -7,8 +7,7 @@ import numpy as np
 from . import stats
 
 
-def inspect(model, mode='list', what='est', information='expected',
-            std_est=False):
+def inspect(model, mode='list', what='est', information='expected'):
     """
     Get fancy view of model parameters estimates.
 
@@ -27,10 +26,6 @@ def inspect(model, mode='list', what='est', information='expected',
         If 'expected', expected Fisher information is used. Otherwise,
         observed information is employed. If None, the no p-values are
         calculated. No effect is what is 'mx'. The default is 'expected'.
-    std_est : bool or str
-        If True, standardized coefficients are also returned as Std. Ests col.
-        If it is 'lv', then output variables are not standardized. The default
-        is False.
 
     Returns
     -------
@@ -39,7 +34,7 @@ def inspect(model, mode='list', what='est', information='expected',
 
     """
     if mode == 'list':
-        return inspect_list(model, information=information, std_est=std_est)
+        return inspect_list(model, information=information)
     elif mode == 'mx':
         return inspect_matrices(model, what=what)
 
@@ -149,7 +144,7 @@ def inspect_matrices(model: Model, what='est'):
     return ret
 
 
-def inspect_list(model: Model, information='expected', std_est=False):
+def inspect_list(model: Model, information='expected'):
     """
     Get a pandas DataFrame containin a view of parameters estimates.
 
@@ -161,9 +156,6 @@ def inspect_list(model: Model, information='expected', std_est=False):
         If 'expected', expected Fisher information is used. Otherwise,
         observed information is employed. If None, the no p-values are
         calculated. The default is 'expected'.
-    std_est : bool
-        If True, standardized coefficients are also returned as Std. Ests col.
-        The default is False.
 
     Returns
     -------
@@ -176,13 +168,6 @@ def inspect_list(model: Model, information='expected', std_est=False):
                         don''t exist')
     res = list()
     vals = model.param_vals
-    if std_est:
-        sigma, (_, c) = model.calc_sigma()
-        w_cov = c @ model.mx_psi @ c.T
-        stds = np.sqrt(w_cov.diagonal())
-        std_full = np.sqrt(sigma.diagonal())
-        if std_est == 'lv':
-            std_full[:] = 1.0
     if information is not None:
         se = stats.calc_se(model, information=information)
         zscores = stats.calc_zvals(model, std_errors=se)
@@ -213,11 +198,7 @@ def inspect_list(model: Model, information='expected', std_est=False):
                         std = '-'
                         zs = '-'
                         pval = '-'
-                    if std_est:
-                        val_std = val / stds[ind[0]] * stds[ind[1]]
-                        res.append((a, op, b, val, val_std, std, zs, pval))
-                    else:
-                        res.append((a, op, b, val, std, zs, pval))
+                    res.append((a, op, b, val, std, zs, pval))
 
     means = list()
     # Gamma1
@@ -242,17 +223,9 @@ def inspect_list(model: Model, information='expected', std_est=False):
                         zs = '-'
                         pval = '-'
                     if b == '1':
-                        if std_est:
-                            val_std = val * stds[ind[1]] / std_full[ind[0]]
-                            means.append((a, op, b, val, val_std, std, zs, pval))
-                        else:
-                            means.append((a, op, b, val, std, zs, pval))
+                        means.append((a, op, b, val, std, zs, pval))
                     else:
-                        if std_est:
-                            val_std = val * stds[ind[1]] / std_full[ind[0]]
-                            res.append((a, op, b, val, val_std, std, zs, pval))
-                        else:
-                            res.append((a, op, b, val, std, zs, pval))
+                        res.append((a, op, b, val, std, zs, pval))
 
     # Gamma2
     if hasattr(model, 'mx_gamma2'):
@@ -276,17 +249,9 @@ def inspect_list(model: Model, information='expected', std_est=False):
                         zs = '-'
                         pval = '-'
                     if b == '1':
-                        if std_est:
-                            val_std = val / std_full[ind[0]]
-                            means.append((a, op, b, val, val_std, std, zs, pval))
-                        else:
-                            means.append((a, op, b, val, std, zs, pval))
+                        means.append((a, op, b, val, std, zs, pval))
                     else:
-                        if std_est:
-                            val_std = val / std_full[ind[0]]
-                            res.append((a, op, b, val, val_std, std, zs, pval))
-                        else:
-                            res.append((a, op, b, val, std, zs, pval))
+                        res.append((a, op, b, val, std, zs, pval))
 
     # Lambda
     if hasattr(model, 'mx_lambda'):
@@ -309,13 +274,7 @@ def inspect_list(model: Model, information='expected', std_est=False):
                         std = '-'
                         zs = '-'
                         pval = '-'
-                    if std_est:
-                        val_std = val * stds[ind[1]]
-                        if std_est != 'lv':
-                            val_std /= std_full[ind[0]]
-                        res.append((a, op, b, val, val_std, std, zs, pval))
-                    else:
-                        res.append((a, op, b, val, std, zs, pval))
+                    res.append((a, op, b, val, std, zs, pval))
     res.extend(means)
     means.clear()
     # Psi
@@ -342,11 +301,7 @@ def inspect_list(model: Model, information='expected', std_est=False):
                         std = '-'
                         zs = '-'
                         pval = '-'
-                    if std_est:
-                        val_std = val / stds[ind[0]] / stds[ind[1]]
-                        res.append((a, op, b, val, val_std, std, zs, pval))
-                    else:
-                        res.append((a, op, b, val, std, zs, pval))
+                    res.append((a, op, b, val, std, zs, pval))
     # Theta
     if hasattr(model, 'mx_theta'):
         mx = model.mx_theta
@@ -368,11 +323,7 @@ def inspect_list(model: Model, information='expected', std_est=False):
                         std = '-'
                         zs = '-'
                         pval = '-'
-                    if std_est:
-                        val_std = val / std_full[ind[0]] / std_full[ind[1]]
-                        res.append((a, op, b, val, val_std, std, zs, pval))
-                    else:
-                        res.append((a, op, b, val, std, zs, pval))
+                    res.append((a, op, b, val, std, zs, pval))
 
     # D -- Variance of random effects matrix
     if hasattr(model, 'mx_d'):
@@ -395,11 +346,7 @@ def inspect_list(model: Model, information='expected', std_est=False):
                         std = '-'
                         zs = '-'
                         pval = '-'
-                    if std_est:
-                        val_est = val / std_full[ind[0]] / std_full[ind[1]]
-                        res.append((a, op, b, val, val_est, std, zs, pval))
-                    else:
-                        res.append((a, op, b, val, std, zs, pval))
+                    res.append((a, op, b, val, std, zs, pval))
     # v -- Variance of random effects variable
     if hasattr(model, 'mx_v'):
         mx = model.mx_v
@@ -421,10 +368,7 @@ def inspect_list(model: Model, information='expected', std_est=False):
                         std = '-'
                         zs = '-'
                         pval = '-'
-                    if std_est:
-                        res.append((a, op, b, val, '-', std, zs, pval))
-                    else:
-                        res.append((a, op, b, val, std, zs, pval))
+                    res.append((a, op, b, val, std, zs, pval))
     # Data_imp -- Matrix of imputed data
     if hasattr(model, 'mx_data_imp'):
         mx = model.mx_data_imp
@@ -447,13 +391,10 @@ def inspect_list(model: Model, information='expected', std_est=False):
                         zs = '-'
                         pval = '-'
                     res.append((a, op, b, val, std, zs, pval))
-    if std_est:
-        cols = ['lval', 'op', 'rval', 'Estimate', 'Est. Std', 'Std. Err',
-                'z-value', 'p-value']
-    else:
-        cols = ['lval', 'op', 'rval', 'Estimate', 'Std. Err', 'z-value',
-                'p-value']
-    return pd.DataFrame(res, columns=cols)
+
+    return pd.DataFrame(res,
+                        columns=['lval', 'op', 'rval', 'Estimate', 'Std. Err',
+                                 'z-value', 'p-value'])
 
 
 def _set_values(params: dict, ref: np.ndarray, start=True):

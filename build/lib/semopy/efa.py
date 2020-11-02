@@ -12,7 +12,7 @@ import pandas as pd
 from .model import Model
 from .inspector import inspect
 from collections import defaultdict
-from sklearn.cluster import OPTICS
+from sklearn.cluster import OPTICS, AffinityPropagation
 from itertools import permutations
 from copy import deepcopy
 from .utils import cor
@@ -154,7 +154,7 @@ def finalize_loadings(loadings: dict, data: pd.DataFrame, dist: pd.DataFrame,
             del loadings[lat]
         if -1 in loadings:
             for lat, inds in list(loadings.items()):
-                if len(inds) == 1 and lat != -1:
+                if len(inds) == 1:
                     del loadings[lat]
                     loadings[-1].append(inds[0])
 
@@ -167,10 +167,10 @@ def finalize_loadings(loadings: dict, data: pd.DataFrame, dist: pd.DataFrame,
             return 1.0
         ins = inspect(m)
         return get_loading_significiance(ins, ind, lat)
-    if -1 not in loadings:
-        return loadings
     loadings = deepcopy(loadings)
     clean_loadings(loadings, base_desc)
+    print('after latent')
+    print(dict_to_desc(loadings))
     loadings_comp = deepcopy(loadings)
     del loadings_comp[-1]
     lats = [lat for lat in loadings if lat != -1]
@@ -180,6 +180,8 @@ def finalize_loadings(loadings: dict, data: pd.DataFrame, dist: pd.DataFrame,
         if pvals[i] < pval:
             loadings_comp[lats[i]].append(ind)
     loadings = loadings_comp
+    print('after comp')
+    print(dict_to_desc(loadings))
     clean_loadings(loadings, base_desc)
     loadings_joint = deepcopy(loadings)
     for a, b in permutations(loadings, 2):
@@ -192,6 +194,8 @@ def finalize_loadings(loadings: dict, data: pd.DataFrame, dist: pd.DataFrame,
             else:
                 break
     clean_loadings(loadings_joint, base_desc)
+    print('after cross')
+    print(dict_to_desc(loadings_joint))
     return loadings_joint
 
 
@@ -261,6 +265,7 @@ def explore_pine_model(data: pd.DataFrame, min_loadings=2, pval=0.01, levels=2,
     names = list(cfa.keys())
     min_loadings = 2
     for level in range(1, levels):
+        n = len(names)
         m = model(pine)
         m.fit(data)
         psi = inspect(m, 'mx')['Psi'].loc[names, names]

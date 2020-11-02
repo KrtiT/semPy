@@ -6,7 +6,6 @@ from .stats import gather_statistics
 from .means import estimate_means
 from .model import Model
 from . import examples
-from . import efa
 
 name = "semopy"
-__version__ = "2.0.1"
+__version__ = "2.0.0-alpha-5"

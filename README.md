@@ -89,11 +89,11 @@ model.inspect()
 Tutorial and overview of **semopy** features are available at [project's website](https://semopy.com).
 
 ## Requirements
-**numpy**, **pandas**, **scipy**, **sympy**
+**numpy**, **pandas**, **scipy**, **sympy**, **sklearn**
 ## Authors
 
-* **Mescheryakov A. Georgy** - *Developer* - [Herrberg](https://gitlab.org/georgy.m) - undegraduate student, SPbSTU
-* **Igolkina A. Anna** - *Supervisor* - [iganna](https://github.com/iganna) - Engineer, SPbSTU
+* **Mescheryakov A. Georgy** - *Developer* - [Herrberg](https://gitlab.org/georgy.m) - undegraduate student, SPbPU
+* **Igolkina A. Anna** - *Supervisor* - [iganna](https://github.com/iganna) - Engineer, SPbPU
 
 ## License
 This project is licensed under the GPL License - see the LICENSE.md file for details.
