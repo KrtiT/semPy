@@ -10,7 +10,6 @@ their loadings via clustering analysis.
 import numpy as np
 import pandas as pd
 from .model import Model
-from .inspector import inspect
 from collections import defaultdict
 from sklearn.cluster import OPTICS
 from itertools import permutations
@@ -133,7 +132,7 @@ def finalize_loadings(loadings: dict, data: pd.DataFrame, dist: pd.DataFrame,
             desc += '# Base desc:\n' + base_desc
         m = model(desc)
         m.fit(data)
-        ins = inspect(m)
+        ins = m.inspect()
         lats_to_remove = set()
         for lat, inds in loadings.items():
             if lat != -1:
@@ -164,15 +163,18 @@ def finalize_loadings(loadings: dict, data: pd.DataFrame, dist: pd.DataFrame,
         desc += f'{lat} =~ {ind}'
         m = model(desc)
         if not m.fit(data).success:
-            return 1.0
-        ins = inspect(m)
+            return float('inf')
+        ins = m.inspect()
+        if m._fim_warn:
+            return float('inf')
         return get_loading_significiance(ins, ind, lat)
-    if -1 not in loadings:
-        return loadings
     loadings = deepcopy(loadings)
     clean_loadings(loadings, base_desc)
     loadings_comp = deepcopy(loadings)
-    del loadings_comp[-1]
+    try:
+        del loadings_comp[-1]
+    except KeyError:
+        pass
     lats = [lat for lat in loadings if lat != -1]
     for ind in loadings[-1]:
         pvals = [test(loadings, base_desc, lat, ind) for lat in lats]
@@ -187,9 +189,11 @@ def finalize_loadings(loadings: dict, data: pd.DataFrame, dist: pd.DataFrame,
         a_items = sorted(loadings[a],
                          key=lambda x: min(dist.loc[x, b_items]))
         for item in a_items:
-            if test(loadings, base_desc, b, item) < pval:
+            kt = test(loadings_joint, base_desc, b, item)
+            if kt < pval:
                 loadings_joint[b].append(item)
             else:
+                # continue
                 break
     clean_loadings(loadings_joint, base_desc)
     return loadings_joint
@@ -263,7 +267,7 @@ def explore_pine_model(data: pd.DataFrame, min_loadings=2, pval=0.01, levels=2,
     for level in range(1, levels):
         m = model(pine)
         m.fit(data)
-        psi = inspect(m, 'mx')['Psi'].loc[names, names]
+        psi = m.inspect('mx')['Psi'].loc[names, names]
         d = np.diag(psi.values.diagonal() ** (-0.5))
         corr = d @ psi @ d
         corr.columns = names
@@ -301,7 +305,7 @@ def get_loading_significiance(res, lval: str, rval: str):
 
     """
     if type(res) is not pd.DataFrame:
-        res = inspect(res)
+        res = res.inspect()
     inds = (res.lval == lval) & (res.rval == rval) & (res.op == '~')
     p = res[inds]['p-value'].values[0]
     return p

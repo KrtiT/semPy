@@ -229,6 +229,25 @@ class ModelMeans(Model):
                                bound=(None, None))
         super().effect_regression(items_super)
 
+    def operation_define(self, operation):
+        """
+        Works through DEFINE command.
+
+        Here, used to prevent user from attempting to use ordinal variables.
+        Parameters
+        ----------
+        operation : Operation
+            Operation namedtuple.
+
+        Returns
+        -------
+        None.
+
+        """
+        if operation.params and operation.params[0] == 'ordinal':
+            raise SyntaxWarning("Models with mean component do not support \
+                                ordinal variables.")
+
     def load_data(self, data: pd.DataFrame, covariance=None, groups=None):
         """
         Load dataset from data matrix.
@@ -731,11 +750,13 @@ class ModelMeans(Model):
             try:
                 mx_var_inv = chol_inv(mx_var)
                 mx_fixed_inv = chol_inv(mx_fixed)
+                self._fim_warn = False
             except np.linalg.LinAlgError:
-                logging.warning("Fisher Information Matrix is not PD."\
-                                " Moore-Penrose inverse will be used instead of "\
-                                "Cholesky decomposition. See "\
-                                "10.1109/TSP.2012.2208105.")
+                logging.warn("Fisher Information Matrix is not PD."
+                             "Moore-Penrose inverse will be used instead of "
+                             "Cholesky decomposition. See "
+                              "10.1109/TSP.2012.2208105.")
+                self._fim_warn = True
                 mx_var_inv = np.linalg.pinv(mx_var)
                 mx_fixed_inv = np.linalg.pinv(mx_fixed)
             fim_inv = block_diag(mx_fixed_inv, mx_var_inv)
@@ -782,11 +803,13 @@ class ModelMeans(Model):
         if inverse:
             try:
                 fim_inv = chol_inv(fim)
+                self.fim_warn = False
             except np.linalg.LinAlgError:
-                logging.warning("Fisher Information Matrix is not PD."\
-                                "Moore-Penrose inverse will be used instead of "\
-                                "Cholesky decomposition. See "\
-                                "10.1109/TSP.2012.2208105.")
+                logging.warn("Fisher Information Matrix is not PD."
+                             "Moore-Penrose inverse will be used instead of "
+                             "Cholesky decomposition. See "
+                              "10.1109/TSP.2012.2208105.")
+                self._fim_warn = True
                 fim_inv = np.linalg.pinv(fim)
             return (fim, fim_inv)
         return fim

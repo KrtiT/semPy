@@ -208,3 +208,51 @@ def compare_results(model, true: pd.DataFrame, error='relative',
         else:
             errs.append(abs(value - est))
     return errs
+
+
+def calc_zkz(groups: pd.Series, k: pd.DataFrame):
+    """
+    Calculate ZKZ^T relationship matrix from covariance matrix K.
+
+    Parameters
+    ----------
+    groups : pd.Series
+        Series of group names for individuals.
+    k : pd.DataFrame
+        Covariance-across-groups matrix. If None, then its calculate as an
+        identity matrix.
+
+    Raises
+    ------
+    Exception
+        Incorrect number of groups: mismatch between dimensions of K and
+        groups series.
+    KeyError
+        Incorrect group naming.
+
+    Returns
+    -------
+    np.ndarray
+        ZKZ^T matrix.
+
+    """
+    
+    p_names = list(groups.unique())
+    p, n = len(p_names), len(groups)
+    if k is None:
+        k = np.identity(p)
+    elif k.shape[0] != p:
+        raise Exception("Dimensions of K don't match number of groups.")
+    z = np.zeros((n, p))
+    for i, germ in enumerate(groups):
+        j = p_names.index(germ)
+        z[i, j] = 1.0
+    if type(k) is pd.DataFrame:
+        try:
+            k = k.loc[p_names, p_names].values
+        except KeyError:
+            raise KeyError("Certain groups in K differ from those "
+                           "provided in a dataset.")
+    zkz = z @ k @ z.T
+    return zkz
+        

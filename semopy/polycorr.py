@@ -1,8 +1,10 @@
 """This module implements polychoric and polyserial correlations."""
+from statsmodels.stats.correlation_tools import corr_nearest
 from scipy.optimize import minimize, minimize_scalar
 from itertools import chain, product, combinations
 from scipy.stats import norm, mvn
 from .utils import cor
+import pandas as pd
 import numpy as np
 
 
@@ -36,39 +38,49 @@ def bivariate_cdf(lower, upper, corr, means=[0, 0], var=[1, 1]):
     return mvn.mvnun(lower, upper, means, s)[0]
 
 def univariate_cdf(lower, upper, mean=0, var=1):
-    """Estimates an integral of univariate pdf given integration lower and 
+    """
+    Estimate an integral of univariate pdf.
+
+    Estimate an integral of univariate pdf given integration lower and 
     upper limits. Consider using relatively big (i.e. 20 if using default mean
     and variance) lower and/or upper bounds when integrating to/from infinity.
-    
-    Keyword arguments:
-        
-        lower -- Lower integration bound.
-        
-        upper -- Upper integration bound.
-        
-        mean -- Mean value of variable (assumed to be 0 by default).
-        
-        var  -- Variance of variable (assumed to be 1 by default).
-        
-    Returns:
-        
+    Parameters
+    ----------
+    lower : float
+        Lower integration bound..
+    upper : float
+        Upper integration bound..
+    mean : float, optional
+        Mean value of the variable. The default is 0.
+    var : float, optional
+        Variance of the variable. The default is 1.
+
+    Returns
+    -------
+    float
         P(lower < x < upper).
+
     """
     return mvn.mvnun([lower], [upper], [mean], [var])[0]
 
 def estimate_intervals(x, inf=10):
-    """Estimates intervals of the polytomized underlying latent variable.
-    
-    Keyword arguments:
-        
-        x   -- An array of values the ordinal variable.
-        
-        inf -- A numerical infinity substitute (10 by default).
-        
-    Returns:
-        
-        An array containing polytomy intervals and an array containing indices
-        of intervals correspoding to each entry in x.
+    """
+    Estimate intervals of the polytomized underlying latent variable.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        An array of values the ordinal variable..
+    inf : float, optional
+        A numerical infinity substitute. The default is 10.
+
+    Returns
+    -------
+    np.ndarray
+        An array containing polytomy intervals.
+    np.ndarray
+        An array containing indices of intervals corresponding to each entry.
+
     """
     x_f = x[~np.isnan(x)]
     u, counts = np.unique(x_f, return_counts=True)
@@ -79,32 +91,38 @@ def estimate_intervals(x, inf=10):
 
 def polyserial_corr(x, y, x_mean=None, x_var=None, x_z=None, x_pdfs=None,
                     y_ints=None, scalar=True):
-    """Estimates polyserial correlation between continious variable x and
-    ordinal variable y.
+    """
+    Estimate polyserial correlation.
     
-    Keyword arguments:
-        
-        x -- Data sample corresponding to x.
-        
-        y -- Data sample corresponding to y.
-        
-        x_mean -- A mean value of x (calculated if not provided).
-        
-        x_var  -- A variance of x (calculated if not provided).
-        
-        x_z    -- A standartized x (calculated if not provided).
-        
-        x_pdfs -- x's logpdf sampled at each point.
-        
-        y_ints -- Polytomic intervals of an underlying latent variable
-                  correspoding to y (calculated if not provided) as returned
-                  by estimate_intervals.
-                  
-        scalar -- If true minimize_scalar is used instead of SLSQP.
-        .
-    Returns:
-        
-        A polyserial correlation coefficient for x and y.
+    Estimate polyserial correlation between continious variable x and
+    ordinal variable y.
+    Parameters
+    ----------
+    x : np.ndarray
+        Data sample corresponding to x.
+    y : np.ndarray
+        Data sample corresponding to ordinal variable y.
+    x_mean : float, optional
+        Mean of x (calculate if not provided). The default is None.
+    x_var : float, optional
+        Variance of x (calculate if not provided). The default is None.
+    x_z : np.ndarray, optional
+        Stabdardized x (calculated if not provided). The default is None.
+    x_pdfs : np.ndarray, optional
+        x's logpdf sampled at each point (calculated if not provided). The
+        default is None.
+    y_ints : list, optional
+        Polytomic intervals of an underlying latent variable
+        correspoding to y (calculated if not provided) as returned by
+        estimate_intervals.. The default is None.
+    scalar : bool, optional
+        If true minimize_scalar is used instead of SLSQP.. The default is True.
+
+    Returns
+    -------
+    float
+        A polyserial correlation coefficient for x and y..
+
     """
     if x_mean is None:
         x_mean = np.nanmean(x)
@@ -187,18 +205,21 @@ def polychoric_corr(x, y, x_ints=None, y_ints=None):
     return minimize_scalar(calc_likelihood, bounds=(-1, 1), method='bounded').x
                 
 
-def hetcor(data, ords=None):
+def hetcor(data, ords=None, nearest=False):
     """
     Compute a heterogenous correlation matrix.
 
     Parameters
     ----------
-    data : TYPE
+    data : pd.DataFrame or np.ndarray
         DESCRIPTION.
     ords : list, optional
         Names of ordinal variables if data is DataFrame or indices of
         ordinal numbers if data is np.array. If ords are None then ordinal
         variables will be determined automatically. The default is None.
+    nearest : bool, optional
+        If True, then nearest PD correlation matrix is returned instead. The
+        default is False.
 
     Returns
     -------
@@ -206,7 +227,7 @@ def hetcor(data, ords=None):
         A heterogenous correlation matrix.
 
     """
-    if type(data) is np.array:
+    if type(data) is np.ndarray:
         cov = cor(data)
         if ords is None:
             ords = set()
@@ -236,4 +257,11 @@ def hetcor(data, ords=None):
     for a, b in combinations(ords, 2):
         cov[a][b] = polychoric_corr(data[a], data[b], o_ints[a], o_ints[b])
         cov[b][a] = cov[a][b]
+    if nearest:
+        if type(cov) is pd.DataFrame:
+            names = cov.columns
+            cov = corr_nearest(cov,threshold=0.05)
+            cov = pd.DataFrame(cov, columns=names, index=names)
+        else:
+            cov = corr_nearest(cov, threshold=0.05)
     return cov

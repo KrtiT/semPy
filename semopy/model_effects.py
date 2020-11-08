@@ -3,7 +3,7 @@
 import pandas as pd
 import numpy as np
 from .model_means import ModelMeans
-from .utils import chol_inv, chol_inv2, cov, kron_identity
+from .utils import chol_inv, chol_inv2, cov, kron_identity, calc_zkz
 from scipy.linalg import block_diag
 from .solver import Solver
 import logging
@@ -448,10 +448,12 @@ class ModelEffects(ModelMeans):
             Dataset with columns as variables and rows as observations.
         group : str
             Name of column that correspond to group labels.
-        K : pd.DataFrame
+        k : pd.DataFrame or tuple
             Covariance matrix betwen groups. If None, then it's assumed to be
-            an identity matrix.
-        covariance : pd.DataFrame, optional
+            an identity matrix. Alternatively, a tuple of (ZKZ^T, S, Q) can be
+            provided where ZKZ^T = Q S Q^T an eigendecomposition of ZKZ^T. S
+            must be provided in the vector/list form. The default is None.
+        covariance : pd.DataFrame, optional 
             Custom covariance matrix. The default is None.
 
         Returns
@@ -460,38 +462,34 @@ class ModelEffects(ModelMeans):
 
         """
         obs = self.vars['observed']
-        grs = data[group]
-        p_names = list(grs.unique())
-        p, n = len(p_names), data.shape[0]
-        if k is None:
-            k = np.identity(p)
-        elif k.shape[0] != p:
-            raise Exception("Dimensions of K don't match number of groups.")
-        z = np.zeros((n, p))
-        for i, germ in enumerate(grs):
-            j = p_names.index(germ)
-            z[i, j] = 1.0
-        if type(k) is pd.DataFrame:
-            try:
-                k = k.loc[p_names, p_names].values
-            except KeyError:
-                raise KeyError("Certain groups in K differ from those "\
-                               "provided in a dataset.")
+        if type(k) in (tuple, list):
+            if len(k) != 3:
+                raise Exception("Both ZKZ^T and its eigendecomposition must "
+                                "be provided.")
         self.mx_g_orig = data[self.vars['observed_exogenous']].values.T
         if len(self.mx_g_orig.shape) != 2:
             self.mx_g_orig = self.mx_g_orig[np.newaxis, :]
         self.mx_g = self.mx_g_orig
         self.mx_data = data[obs].values
         self.num_m = len(set(self.vars['observed']) - self.vars['latent'])
-        self.mx_zkz = z @ k @ z.T
+        if type(k) is tuple:
+            self.mx_zkz, self.mx_sk, self.mx_q = k
+            self._ktuple = True
+        else:
+            self._ktuple = False
+            self.mx_zkz = calc_zkz(data[group], k)
         self.__loaded = None
         self.load_cov(covariance[obs].loc[obs]
                       if covariance is not None else cov(self.mx_data))
 
     def load_ml(self, fake=False):
         self.trace_zkz = np.trace(self.mx_zkz)
-        s, q = np.linalg.eigh(self.mx_zkz)
-        self.mx_s = s
+        if self._ktuple:
+            self.mx_s = self.mx_sk
+            q = self.mx_q
+        else:
+            s, q = np.linalg.eigh(self.mx_zkz)
+            self.mx_s = s
         self.mx_data_transformed = self.mx_data.T @ q
         self.mx_g = self.mx_g_orig @ q
         self.num_n = self.mx_data_transformed.shape[1]
@@ -502,7 +500,12 @@ class ModelEffects(ModelMeans):
 
     def load_reml(self):
         g = self.mx_g_orig
-        s = np.identity(g.shape[1]) - g.T @ chol_inv(g @ g.T) @ g
+        try:
+            s = np.identity(g.shape[1]) - g.T @ chol_inv(g @ g.T) @ g
+        except ValueError:
+            raise Exception("REML should not be used when there are no"
+                            " either intercepts or exogenous variables in "
+                            "Gamma matrices.")
         d, q = np.linalg.eigh(s)
         rank_dec = 0
         for i in d:
@@ -855,11 +858,13 @@ class ModelEffects(ModelMeans):
             try:
                 mx_base_inv = chol_inv(mx_base)
                 mx_rf_inv = chol_inv(mx_rf)
+                self._fim_warn = False
             except np.linalg.LinAlgError:
-                logging.warning("Fisher Information Matrix is not PD."\
-                                " Moore-Penrose inverse will be used "\
-                                "instead of Cholesky decomposition. See "\
-                                "10.1109/TSP.2012.2208105.")
+                logging.warn("Fisher Information Matrix is not PD."
+                             "Moore-Penrose inverse will be used instead of "
+                             "Cholesky decomposition. See "
+                              "10.1109/TSP.2012.2208105.")
+                self._fim_warn = True
                 mx_base_inv = np.linalg.pinv(mx_base)
                 mx_rf_inv = np.linalg.pinv(mx_rf)
             fim_inv = block_diag(mx_base_inv, mx_rf_inv)

@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """semopy 2.0 model module without random effects."""
+from statsmodels.stats.correlation_tools import cov_nearest
 from .utils import chol_inv, chol_inv2, cov, delete_mx
 from itertools import combinations, chain
 from .constraints import parse_constraint
 from collections import defaultdict
 from dataclasses import dataclass
 from .model_base import ModelBase
+from .polycorr import hetcor
 from .solver import Solver
 from . import startingvalues
 import pandas as pd
@@ -637,8 +639,30 @@ class Model(ModelBase):
             raise SyntaxError('CONSTRAINT must have 1 argument: constraint.')
         params = [name for name, param in self.parameters.items()
                   if param.active]
-        print(params)
         self.constraints.append(parse_constraint(constr, params))
+
+    def operation_define(self, operation):
+        """
+        Works through DEFINE command.
+
+        Here, used to add ordinal variables to the variable holder.
+        Parameters
+        ----------
+        operation : Operation
+            Operation namedtuple.
+
+        Returns
+        -------
+        None.
+
+        """
+        if operation.params and operation.params[0] == 'ordinal':
+            if 'ordinal' not in self.vars:
+                ords = set()
+                self.vars['ordinal'] = ords
+            else:
+                ords = self.vars['ordinal']
+            ords.update(operation.onto)  
 
     def update_matrices(self, params: np.ndarray):
         """
@@ -711,8 +735,12 @@ class Model(ModelBase):
         self.mx_data = data[obs].values
         if len(self.mx_data.shape) != 2:
             self.mx_data = self.mx_data[:, np.newaxis]
-        self.load_cov(covariance.loc[obs, obs].values
-                      if covariance is not None else cov(self.mx_data))
+        if 'ordinal' not in self.vars:
+            self.load_cov(covariance.loc[obs, obs].values
+                          if covariance is not None else cov(self.mx_data))
+        else:
+            inds = [obs.index(v) for v in self.vars['ordinal']]
+            self.load_cov(hetcor(self.mx_data, inds))
 
     def load_cov(self, covariance: np.ndarray):
         """
@@ -737,10 +765,12 @@ class Model(ModelBase):
         try:
             self.mx_cov_inv, self.cov_logdet = chol_inv2(self.mx_cov)
         except np.linalg.LinAlgError:
-            logging.warning('Sample covariance matrix is not PD. It may \
-                            indicate that data is bad. semopy now will run \
-                                ridging and/or nearPD subroutines.')
-            raise NotImplementedError
+            logging.warning('Sample covariance matrix is not PD. It may '
+                            'indicate that data is bad. Also, it arises often '
+                            'when polychoric/polyserial correlations are used.'
+                            ' semopy now will run nearPD subroutines.')
+            self.mx_cov = cov_nearest(covariance, threshold=1e-2)
+            self.mx_cov_inv, self.cov_logdet = chol_inv2(self.mx_cov)
         self.mx_covlike_identity = np.identity(self.mx_cov.shape[0])
 
     def get_bounds(self):
@@ -1306,11 +1336,13 @@ class Model(ModelBase):
         if inverse:
             try:
                 fim_inv = chol_inv(fim)
+                self._fim_warn = False
             except np.linalg.LinAlgError:
-                logging.warn("Fisher Information Matrix is not PD."\
-                             "Moore-Penrose inverse will be used instead of "\
-                             "Cholesky decomposition. See "\
+                logging.warn("Fisher Information Matrix is not PD."
+                              "Moore-Penrose inverse will be used instead of "
+                              "Cholesky decomposition. See "
                               "10.1109/TSP.2012.2208105.")
+                self._fim_warn = True
                 fim_inv = np.linalg.pinv(fim)
             return (fim, fim_inv)
         return fim
