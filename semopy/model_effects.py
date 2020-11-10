@@ -277,6 +277,20 @@ class ModelEffects(ModelMeans):
                 self.add_param(name, matrix=mx, indices=ind, start=val,
                                active=active, symmetric=symm, bound=bound)
 
+    def set_fim_means(self):
+        """
+        Substitute true FIM matrix with means-only FIM matrix.
+
+        A trick to reduce GWAS time as only mean components are subject to
+        analysis.
+        Returns
+        -------
+        None.
+
+        """
+        
+        self.calc_fim = self.calc_fim_means
+
     '''
     ----------------------------LINEAR ALGEBRA PART---------------------------
     ----------------------The code below is responsible-----------------------
@@ -784,7 +798,6 @@ class ModelEffects(ModelMeans):
             FIM^{-1}.
 
         """
-        return self.calc_fim_ml(inverse)
         sigma, aux = self.calc_sigma()
         w_inv = self.calc_w_inv(sigma)[0]
         r = self.calc_r_reml2(sigma)
@@ -863,7 +876,7 @@ class ModelEffects(ModelMeans):
                 logging.warn("Fisher Information Matrix is not PD."
                              "Moore-Penrose inverse will be used instead of "
                              "Cholesky decomposition. See "
-                              "10.1109/TSP.2012.2208105.")
+                             "10.1109/TSP.2012.2208105.")
                 self._fim_warn = True
                 mx_base_inv = np.linalg.pinv(mx_base)
                 mx_rf_inv = np.linalg.pinv(mx_rf)
@@ -918,6 +931,51 @@ class ModelEffects(ModelMeans):
             for k in range(i, sz):
                 if wr[i] is not None and wr[k] is not None:
                     info[i, k] = np.einsum('ij,ji->', wr[i], wr[k]) / 2
+                if prod_means[i] is not None and mean_grad[k] is not None:
+                    info[i, k] += prod_means[i] @ mean_grad[k]
+        fim = info + np.triu(info, 1).T
+        fim = fim
+        if inverse:
+            fim_inv = np.linalg.pinv(fim)
+            return (fim, fim_inv)
+        return fim
+
+    def calc_fim_means(self, inverse=False):
+        """
+        Calculate Fisher Information Matrix for mean components only.
+
+        Exponential-family distributions are assumed. Useful to fascilate GWAS
+        as we usually don't care about other parameters.
+        Parameters
+        ----------
+        inverse : bool, optional
+            If True, function also returns inverse of FIM. The default is
+            False.
+
+        Returns
+        -------
+        np.ndarray
+            FIM.
+        np.ndarray, optional
+            FIM^{-1}.
+
+        """
+        sigma, (m, c) = self.calc_sigma()
+        mean_grad = self.calc_mean_grad(m, c)
+        w_inv = self.calc_w_inv(sigma)[0]
+        r = self.calc_r(sigma)
+        r_inv = chol_inv(r)
+        sigma = np.kron(np.diag(w_inv), r_inv)
+        sz = len(self.param_vals)
+        m = self.num_n, self.num_m
+        tr_r = np.trace(r)
+        mean_grad = [g.reshape((-1, 1), order="F") if len(g.shape) else None
+                     for g in mean_grad]
+        prod_means = [g.T @ sigma * tr_r if g is not None else None
+                      for g in mean_grad]
+        info = np.zeros((sz, sz))
+        for i in range(sz):
+            for k in range(i, sz):
                 if prod_means[i] is not None and mean_grad[k] is not None:
                     info[i, k] += prod_means[i] @ mean_grad[k]
         fim = info + np.triu(info, 1).T

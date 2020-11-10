@@ -195,7 +195,10 @@ def finalize_loadings(loadings: dict, data: pd.DataFrame, dist: pd.DataFrame,
             else:
                 # continue
                 break
-    clean_loadings(loadings_joint, base_desc)
+    tmp = None
+    while loadings_joint != tmp:
+        tmp = deepcopy(loadings_joint)
+        clean_loadings(loadings_joint, base_desc)
     return loadings_joint
 
 
