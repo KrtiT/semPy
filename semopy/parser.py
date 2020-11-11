@@ -6,12 +6,12 @@ import re
 
 Operation = namedtuple('Operation', 'name, params, onto',
                        defaults=(None, None))
-__prt_lvalue = r'(\w+(?:\s*,\s*\w*)*)'
+__prt_lvalue = r'(\w[\w\.]*(?:\s*,\s*[\w.]*)*)'
 __prt_op = r'\s*((?:\s\w+\s)|(?:[=~\\\*@\$<>\-]+\S*?))\s*'
-__prt_rvalue = r'(-?\w[\w.]*(?:\s*\*\s*\w+)?(?:\s*\+\s*-?\w[\w.]*(?:\s*\*\s*\w+)?)*)'
+__prt_rvalue = r'(-?\w[\w.]*(?:\s*\*\s*\w[\w.]*)?(?:\s*\+\s*-?\w[\w.]*(?:\s*\*\s*\w[\w.]*)?)*)'
 PTRN_EFFECT = re.compile(__prt_lvalue + __prt_op + __prt_rvalue)
 PTRN_OPERATION = re.compile(r'([A-Z][A-Z_]+(?:\(.*\))?)\s*([\w\s]+)*')
-PTRN_RVALUE = re.compile(r'((-?\w[\w.]*\*)?\w+)')
+PTRN_RVALUE = re.compile(r'((-?\w[\w.]*\*)?\w[\w.]*)')
 PTRN_OP = re.compile(r'(\w+)(\(.*\))?')
 
 

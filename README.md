@@ -92,7 +92,7 @@ Tutorial and overview of **semopy** features are available at [project's website
 **numpy**, **pandas**, **scipy**, **sympy**, **sklearn**
 ## Authors
 
-* **Mescheryakov A. Georgy** - *Developer* - [Herrberg](https://gitlab.org/georgy.m) - student, SPbPU
+* **Mescheryakov A. Georgy** - *Developer* - [georgy.m](https://gitlab.org/georgy.m) - student, SPbPU
 * **Igolkina A. Anna** - *Supervisor* - [iganna](https://github.com/iganna) - Engineer, SPbPU
 
 ## License
