@@ -184,7 +184,10 @@ class Imputer(Model):
         """
         super().prepare_params()
         self.mx_sigma = self.calc_sigma()[0]
-        self.mx_sigma_inv = chol_inv(self.mx_sigma)
+        try:
+            self.mx_sigma_inv = chol_inv(self.mx_sigma)
+        except np.linalg.LinAlgError:
+            self.mx_sigma_inv = np.linalg.pinv(self.mx_sigma)
 
     def calc_data_grad(self):
         """
@@ -478,7 +481,10 @@ class ImputerMeans(ModelMeans):
         """
         super().prepare_params()
         self.mx_sigma = self.calc_sigma()[0]
-        self.mx_sigma_inv = chol_inv(self.mx_sigma)
+        try:
+            self.mx_sigma_inv = chol_inv(self.mx_sigma)
+        except np.linalg.LinAlgError:
+            self.mx_sigma_inv = np.linalg.pinv(self.mx_sigma)
         i = np.identity(self.mx_beta.shape[0])
         self.mx_m = self.mx_lambda @ np.linalg.inv(i - self.mx_beta)
         self.mx_g = self.mx_g_imp
