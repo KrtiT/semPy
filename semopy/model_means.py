@@ -346,7 +346,7 @@ class ModelMeans(Model):
         if self.calc_fim is self.calc_fim_ml:
             self.prepare_fiml()
 
-    def fit(self, data=None, cov=None, obj='REML', solver='SLSQP', groups=None,
+    def fit(self, data=None, cov=None, obj='ML', solver='SLSQP', groups=None,
             clean_slate=False):
         """
         Fit model to data.
@@ -359,7 +359,7 @@ class ModelMeans(Model):
             Pre-computed covariance/correlation matrix. The default is None.
         obj : str, optional
             Objective function to minimize. Possible values are 'REML', "ML".
-            The default is 'FIML'.
+            The default is 'ML'.
         solver : TYPE, optional
             Optimizaiton method. Currently scipy-only methods are available.
             The default is 'SLSQP'.

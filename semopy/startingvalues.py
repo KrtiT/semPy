@@ -51,10 +51,15 @@ def start_lambda(model, lval: str, rval: str):
     """
     if rval not in model.vars['latent']:
         return 0.0
-    first = model.first_manifs[rval]
+    obs = model.vars['observed']
+    first = rval
+    while first not in obs:
+        try:
+            first = model.first_manifs[first]
+        except KeyError:
+            return 0.0
     if first is None or not hasattr(model, 'mx_data'):
         return 0.0
-    obs = model.vars['observed']
     i, j = obs.index(first), obs.index(lval)
     data = model.mx_data
     x, y = data[:, i], data[:, j]

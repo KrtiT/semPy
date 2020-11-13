@@ -9,5 +9,5 @@ from . import examples
 from . import efa
 
 name = "semopy"
-__version__ = "2.0.5"
+__version__ = "2.0.6"
 __author__ = "Georgy Meshcheryakov"
