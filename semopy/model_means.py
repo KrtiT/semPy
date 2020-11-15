@@ -686,6 +686,36 @@ class ModelMeans(Model):
         return np.array(grad)
 
     '''
+    -------------------------Prediction method--------------------------------
+    '''
+
+    def predict_exo(self, exogenous: pd.DataFrame):
+        """
+        Predict output variables given a set of exogenous variables.
+
+        This method works much faster than "predict", however it can't be
+        utilised to impute missing data or to estimate factors as of now. It is
+        especially useful for phenotype prediction via a set of known SNPs.
+        Parameters
+        ----------
+        exogenous : pd.DataFrame
+            Observations of exogenous variables. Missing variables or mssing
+            data are converted to zeros.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame containing predictions of endogenous observed variables.
+
+        """
+        
+        g = exogenous[self.vars['observed_exogenous']].values.T 
+        t = np.linalg.inv(np.identity(self.mx_beta.shape[0]) - self.mx_beta)
+        t = (self.mx_lambda @ t @ self.mx_gamma1 + self.mx_gamma2) @ g
+        return pd.DataFrame(t.T, columns=self.vars['observed'],
+                            index=exogenous.index)
+
+    '''
     -------------------------Fisher Information Matrix------------------------
     '''
 
@@ -813,3 +843,4 @@ class ModelMeans(Model):
                 fim_inv = np.linalg.pinv(fim)
             return (fim, fim_inv)
         return fim
+

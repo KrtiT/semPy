@@ -229,7 +229,7 @@ class ModelEffects(ModelMeans):
         imp = ImputerEffects(self, data, group, k)
         res = imp.fit(solver='SLSQP')
         data = imp.get_fancy()
-        return data if not ret_opt else (data, res)
+        return data if not ret_opt else (data, res)        
 
     def effect_rf_covariance(self, items: dict):
         """
@@ -503,7 +503,7 @@ class ModelEffects(ModelMeans):
             q = self.mx_q
         else:
             s, q = np.linalg.eigh(self.mx_zkz)
-            self.mx_s = s
+            self.mx_s, self.mx_q = s, q
         self.mx_data_transformed = self.mx_data.T @ q
         self.mx_g = self.mx_g_orig @ q
         self.num_n = self.mx_data_transformed.shape[1]
