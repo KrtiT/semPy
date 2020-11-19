@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """Base model module that contains ModelBase for lienear SEM models."""
 from abc import ABC, abstractmethod
 from collections import defaultdict

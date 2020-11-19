@@ -1,7 +1,9 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Statistic and fit indices."""
 from scipy.stats import norm, chi2
 from collections import namedtuple
+from .optimizer import Optimizer
 from .model import Model
 import pandas as pd
 import numpy as np
@@ -465,10 +467,50 @@ def calc_pvals(model, z_scores=None, information='expected'):
     return [2 * (1 - norm.cdf(abs(z))) for z in z_scores]
 
 
+def calc_stats(model):
+    """
+    Calculate fit indices and other auxiliary statistics.
+
+    Parameters
+    ----------
+    model : Model
+        Fit model instance.
+
+    Returns
+    -------
+    pd.DataFrame
+        Fit indices and statistics.
+
+    """
+    if not hasattr(model, 'last_result'):
+        raise Exception('Can''t gather statitics from model until it is fit.')
+    try:
+        lh = calc_likelihood(model)
+    except np.linalg.LinAlgError:
+        lh = np.nan
+    aic = calc_aic(model, lh)
+    bic = calc_bic(model, lh)
+    dof = calc_dof(model)
+    chi2_base, dof_base = __get_chi2_base(model)
+    chi2 = calc_chi2(model, dof)
+    rmsea = calc_rmsea(model, chi2[0], dof)
+    cfi = calc_cfi(model, dof, chi2[0], dof_base, chi2_base)
+    gfi = calc_gfi(model, chi2[0], chi2_base)
+    agfi = calc_agfi(model, dof, dof_base, gfi)
+    nfi = calc_nfi(model, chi2[0], chi2_base)
+    tli = calc_tli(model, dof, chi2[0], dof_base, chi2_base)
+    d = {'DoF': dof, 'DoF Baseline': dof_base,
+         'chi2': chi2[0], 'chi2 p-value': chi2[1], 'chi2 Baseline': chi2_base,
+         'CFI': cfi, 'GFI': gfi, 'AGFI': agfi, 'NFI': nfi, 'TLI': tli,
+         'RMSEA': rmsea, 'AIC': aic, 'BIC': bic, 'LogLik': lh}
+    return pd.DataFrame(d, index=['Value'])
+
+
 def gather_statistics(model, information='expected'):
     """
     Retrieve all statistics as specified in SEMStatistics structure.
 
+    Needed for backwards-compaitability with semopy 1.+.
     Parameters
     ----------
     model : Model
@@ -488,6 +530,8 @@ def gather_statistics(model, information='expected'):
         Namedtuple containing all statistics available to semopy.
 
     """
+    if isinstance(model, Optimizer):
+        model = model.model
     if not hasattr(model, 'last_result'):
         raise Exception('Can''t gather statitics from model until it is fit.')
     values = model.param_vals.copy()

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Inspector module helps researcher fetch information on estimates."""
+from .optimizer import Optimizer
 from .model import Model
 import pandas as pd
 import numpy as np
@@ -38,6 +39,8 @@ def inspect(model, mode='list', what='est', information='expected',
         Dataframe or mapping matrix_name->matrix.
 
     """
+    if isinstance(model, Optimizer):
+        model = model.model
     if mode == 'list':
         return inspect_list(model, information=information, std_est=std_est)
     elif mode == 'mx':

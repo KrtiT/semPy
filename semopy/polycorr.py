@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """This module implements polychoric and polyserial correlations."""
 from statsmodels.stats.correlation_tools import corr_nearest
 from scipy.optimize import minimize, minimize_scalar

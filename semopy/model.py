@@ -467,6 +467,7 @@ class Model(ModelBase):
 
         """
         inners = self.vars['inner']
+        lats = self.vars['latent']
         for lv, rvs in items.items():
             lv_is_inner = lv in inners
             for rv, mult in rvs.items():
@@ -498,6 +499,8 @@ class Model(ModelBase):
                 i, j = rows.index(lv), cols.index(rv)
                 ind = (i, j)
                 if i == j:
+                    if self.baseline and lv in lats:
+                        continue
                     bound = (0, None)
                     symm = False
                 else:
@@ -741,6 +744,34 @@ class Model(ModelBase):
         else:
             inds = [obs.index(v) for v in self.vars['ordinal']]
             self.load_cov(hetcor(self.mx_data, inds))
+
+    def load_dataset(self, data: pd.DataFrame, ordcor=None, **kwargs):
+        """
+        Load dataset.
+
+        Backward-compatibility method for semopy 1.+.
+        Parameters
+        ----------
+        data : pd.DataFrame
+            Dataset.
+        ordcor : bool, optional
+            If iterable, then it lists a set of ordinal variables. The default
+            is None.
+
+        Returns
+        -------
+        None.
+
+        """
+        if ordcor:
+            try:
+                vs = self.vars['ordinal']
+            except KeyError:
+                vs = set()
+                self.vars['ordinal'] = vs
+            for var in ordcor:
+                vs.add(var)
+        self.load(data)
 
     def load_cov(self, covariance: np.ndarray):
         """
