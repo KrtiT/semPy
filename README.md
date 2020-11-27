@@ -86,10 +86,10 @@ Finally, user can `inspect` parameters' estimates:
 model.inspect()
 ~~~
 ## Would you like to know more?
-Tutorial and overview of **semopy** features are available at [project's website](https://semopy.com).
+Tutorial and overview of **semopy** features are available at the [project's website](https://semopy.com).
 
 ## Requirements
-**numpy**, **pandas**, **scipy**, **sympy**, **sklearn**
+**numpy**, **pandas**, **scipy**, **sympy**, **sklearn**, **statmodels**
 ## Authors
 
 * **Mescheryakov A. Georgy** - *Developer* - [georgy.m](https://gitlab.org/georgy.m) - student, SPbPU
