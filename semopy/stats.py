@@ -31,6 +31,9 @@ def get_baseline_model(model, data=None):
     data : pd.DataFrame, optional
         Data, extracting from model will be attempted if no data provided.
         (It's assumed that model.load took place). The default is None.
+    cov : pd.DataFrame, optional
+        Covariance matrix can be provided in the lack of presense of data.
+        The default is None.
 
     Returns
     -------
@@ -47,9 +50,15 @@ def get_baseline_model(model, data=None):
     mod = Model(desc, baseline=True)
     try:
         if not data:
-            data = pd.DataFrame(data=model.mx_data,
-                                columns=model.vars['observed'])
-        mod.load(data)
+            if hasattr(model, 'mx_data'):
+                data = pd.DataFrame(data=model.mx_data,
+                                    columns=model.vars['observed'])
+                mod.load(data)
+            else:
+                data = pd.DataFrame(data=model.mx_cov,
+                                    index=model.vars['observed'],
+                                    columns=model.vars['observed']) 
+                mod.load(cov=data, n_samples=model.n_samples)
     except AttributeError:
         pass
     return mod
@@ -270,7 +279,7 @@ def calc_chi2(model, dof=None):
     """
     if dof is None:
         dof = calc_dof(model)
-    stat = model.mx_data.shape[0] * model.last_result.fun
+    stat = model.n_samples * model.last_result.fun
     return stat, 1 - chi2.cdf(stat, dof)
 
 
@@ -299,7 +308,7 @@ def calc_rmsea(model, chi2=None, dof=None):
         dof = calc_dof(model)
     if chi2 < dof:
         return 0
-    return np.sqrt((chi2 / dof - 1) / (model.mx_data.shape[0] - 1))
+    return np.sqrt((chi2 / dof - 1) / (model.n_samples - 1))
 
 
 def calc_likelihood(model):
@@ -362,7 +371,7 @@ def calc_bic(model, lh=None):
     """
     if lh is None:
         lh = calc_likelihood(model)
-    k, n = len(model.param_vals), model.mx_data.shape[0]
+    k, n = len(model.param_vals), model.n_samples
     return np.log(n) * k - 2 * lh
 
 
@@ -389,7 +398,7 @@ def calc_se(model, information='expected'):
         variances = asymptoticCov.diagonal().copy()
     else:
         from numdifftools import Gradient, Hessian
-        mult = model.mx_data.shape[0] / 2
+        mult = model.n_samples / 2
         if hasattr(model, 'last_result'):
             fun, grad = model.get_objective(model.last_result.name_obj)
             if model.last_result.name_obj == 'MatNorm':

@@ -98,7 +98,8 @@ class ModelEffects(ModelMeans):
         mx = np.zeros((n, n))
         return mx, (names, names)
 
-    def load(self, data, group: str, k=None, cov=None, clean_slate=False):
+    def load(self, data, group: str, k=None, cov=None, clean_slate=False,
+             n_samples=None):
         """
         Load dataset.
 
@@ -116,6 +117,8 @@ class ModelEffects(ModelMeans):
             starting values. The default is None.
         clean_slate : bool, optional
             If True, resets parameters vector. The default is False.
+        n_samples : int, optional
+            Redunant for ModelEffects. The default is None.
 
         KeyError
             Rises when there are missing variables from the data.
@@ -486,6 +489,7 @@ class ModelEffects(ModelMeans):
             self.mx_g_orig = self.mx_g_orig[np.newaxis, :]
         self.mx_g = self.mx_g_orig
         self.mx_data = data[obs].values
+        self.n_samples, self.n_obs = self.mx_data.shape
         self.num_m = len(set(self.vars['observed']) - self.vars['latent'])
         if type(k) is tuple:
             self.mx_zkz, self.mx_sk, self.mx_q = k

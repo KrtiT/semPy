@@ -279,6 +279,7 @@ class ModelMeans(Model):
         self.mx_data = data[obs].values
         if len(self.mx_data.shape) != 2:
             self.mx_data = self.mx_data[:, np.newaxis]
+        self.n_samples, self.n_obs = self.mx_data.shape
         self.mx_g = data[self.vars['observed_exogenous']].values.T
         if len(self.mx_g.shape) != 2:
             self.mx_g = self.mx_g[np.newaxis, :]
@@ -299,7 +300,8 @@ class ModelMeans(Model):
         self.load_cov(covariance.loc[obs, obs]
                       if covariance is not None else cov(self.mx_data))
 
-    def load(self, data, cov=None, groups=None, clean_slate=False):
+    def load(self, data, cov=None, groups=None, clean_slate=False,
+             n_samples=None):
         """
         Load dataset.
 
@@ -314,6 +316,8 @@ class ModelMeans(Model):
             Groups of size > 1 to center across. The default is None.
         clean_slate : bool, optional
             If True, resets parameters vector. The default is False.
+        n_samples : int, optional
+            Redunant for ModelMeans. The default is None.
 
         KeyError
             Rises when there are missing variables from the data.

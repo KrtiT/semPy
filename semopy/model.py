@@ -744,6 +744,7 @@ class Model(ModelBase):
         else:
             inds = [obs.index(v) for v in self.vars['ordinal']]
             self.load_cov(hetcor(self.mx_data, inds))
+        self.n_samples, self.n_obs = self.mx_data.shape
 
     def load_dataset(self, data: pd.DataFrame, ordcor=None, **kwargs):
         """
@@ -817,7 +818,8 @@ class Model(ModelBase):
         return [param.bound for _, param in self.parameters.items()
                 if param.active]
 
-    def load(self, data=None, cov=None, groups=None, clean_slate=False):
+    def load(self, data=None, cov=None, groups=None, clean_slate=False,
+             n_samples=None):
         """
         Load dataset.
 
@@ -836,6 +838,10 @@ class Model(ModelBase):
             Groups of size > 1 to center across. The default is None.
         clean_slate : bool, optional
             If True, resets parameters vector. The default is False.
+        n_samples : int, optional
+            Number of samples in data. Used only if data is None and cov is
+            provided for Fisher Information Matrix calculation. The default is
+            None.
 
         Raises
         ------
@@ -873,6 +879,7 @@ class Model(ModelBase):
             self.load_data(data, covariance=cov, groups=groups)
         else:
             self.load_cov(cov)
+            self.n_samples = n_samples
             if groups is not None:
                 logging.warning('"groups" argument is redunant with cov \
                                 matrix.')
@@ -882,7 +889,7 @@ class Model(ModelBase):
             self.prepare_params()
 
     def fit(self, data=None, cov=None, obj='MLW', solver='SLSQP', groups=None,
-            clean_slate=False, regularization=None):
+            clean_slate=False, regularization=None, n_samples=None):
         """
         Fit model to data.
 
@@ -895,7 +902,7 @@ class Model(ModelBase):
         obj : str, optional
             Objective function to minimize. Possible values are 'MLW', 'FIML',
             'ULS', 'GLS'. The default is 'MLW'.
-        solver : TYPE, optional
+        solver : str, optional
             Optimizaiton method. Currently scipy-only methods are available.
             The default is 'SLSQP'.
         groups : list, optional
@@ -908,6 +915,10 @@ class Model(ModelBase):
             Special structure as returend by create_regularization function.
             If not None, then a regularization will be applied to a certain
             parameters in the model. The default is None.
+        n_samples : int, optional
+            Number of samples in data. Used only if data is None and cov is
+            provided for Fisher Information Matrix calculation. The default is
+            None.
 
         Raises
         ------
@@ -921,7 +932,7 @@ class Model(ModelBase):
 
         """
         self.load(data=data, cov=cov, groups=groups,
-                  clean_slate=clean_slate)
+                  clean_slate=clean_slate, n_samples=n_samples)
         if obj == 'FIML':
             if not hasattr(self, 'mx_data'):
                 raise Exception('Full data must be supplied for FIML')
@@ -1359,7 +1370,14 @@ class Model(ModelBase):
         sz = len(sigma_grad)
         info = np.zeros((sz, sz))
         sgs = [sg @ inv_sigma for sg in sigma_grad]
-        n = self.mx_data.shape[0] / 2
+        n = self.n_samples
+        if n is None:
+            raise AttributeError('For FIM estimation in a covariance-matr'
+                                 'ix-only setting, you must provide the'
+                                 ' n_samples argument to the fit or load'
+                                 ' methods.')
+        n /= 2
+        
         for i in range(sz):
             for k in range(i, sz):
                 info[i, k] = n * np.einsum('ij,ji->', sgs[i], sgs[k])

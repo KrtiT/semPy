@@ -175,8 +175,8 @@ def inspect_list(model: Model, information='expected', std_est=False):
 
     """
     if not hasattr(model, 'last_result'):
-        raise Exception('Can''t inspect model parameters estimates as they \
-                        don''t exist')
+        raise Exception('Can''t inspect model parameters estimates as they'
+                        ' don''t exist')
     res = list()
     vals = model.param_vals
     if std_est:
