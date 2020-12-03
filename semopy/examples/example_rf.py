@@ -12,6 +12,7 @@ Correct parameter estimates:
 Notice that get_data() returns tuple: dataset and K matrix.
 """
 import pandas as pd
+import os
 
 __desc = '''eta1 =~ y1 + y2
 eta2 =~ y3 + y4
@@ -19,8 +20,9 @@ x2 ~ eta1
 eta2 ~ eta1
 x1 ~ eta1'''
 
-__filename = '%s/example_rf_data.csv' % '/'.join(__file__.split('/')[:-1])
-__filename_k = '%s/example_rf_kinship.csv' % '/'.join(__file__.split('/')[:-1])
+__folder = os.path.dirname(os.path.abspath(__file__))
+__filename = '%s/example_rf_data.csv' % __folder
+__filename_k = '%s/example_rf_kinship.csv' % __folder
 
 
 def get_model():

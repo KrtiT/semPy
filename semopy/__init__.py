@@ -11,5 +11,5 @@ from . import examples
 from . import efa
 
 name = "semopy"
-__version__ = "2.0.10"
+__version__ = "2.0.11"
 __author__ = "Georgy Meshcheryakov"

@@ -7,13 +7,16 @@ test scores of seventh- and eighth-grade children from two different schools
 (Pasteur and Grant-White). 
 """
 import pandas as pd
+import os
 
 __desc = '''visual =~ x1 + x2 + x3
 textual =~ x4 + x5 + x6
   speed =~ x7 + x8 + x9'''
 
+
+
 __filename = '%s/holzinger_swineford39_data.csv' % \
-    '/'.join(__file__.split('/')[:-1])
+    os.path.dirname(os.path.abspath(__file__))
 
 
 def get_model():

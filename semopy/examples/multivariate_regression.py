@@ -7,10 +7,12 @@ True parameter values are 2, 6, -10 (regression parameters):
     eps ~ N(0, 1)
 """
 import pandas as pd
+import os
 
 __desc = 'y ~ x1 + x2 + x3'
 
-__filename = '%s/multivariate_data.csv' % '/'.join(__file__.split('/')[:-1])
+__folder = os.path.dirname(os.path.abspath(__file__))
+__filename = '%s/multivariate_data.csv' % __folder
 
 
 def get_model():

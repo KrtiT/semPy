@@ -5,10 +5,12 @@
 Correct parameter value is 5.0 (regression parameter).
 """
 import pandas as pd
+import os
 
 __desc = 'y ~ x'
 
-__filename = '%s/univariate_data.csv' % '/'.join(__file__.split('/')[:-1])
+__folder = os.path.dirname(os.path.abspath(__file__))
+__filename = '%s/univariate_data.csv' % __folder
 
 
 def get_model():

@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """Model example from semopy article."""
 import pandas as pd
+import os
 
 __desc = '''# structural part
 eta3 ~ x1 + x2
@@ -18,7 +19,9 @@ eta4 =~ y4 + y6
 eta2 ~~   x2
 y5 ~~   y6'''
 
-__filename = '%s/article_data.csv' % '/'.join(__file__.split('/')[:-1])
+
+__folder = os.path.dirname(os.path.abspath(__file__))
+__filename = '%s/article_data.csv' % __folder
 
 
 def get_model():

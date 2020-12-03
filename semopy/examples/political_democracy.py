@@ -8,6 +8,7 @@ and 1965, and three measures of industrialization in 1960, for 75 developing
 countries.
 """
 import pandas as pd
+import os
 
 __desc = '''# measurement model
 ind60 =~ x1 + x2 + x3
@@ -23,7 +24,7 @@ y3 ~~ y7
 y4 ~~ y8
 y6 ~~ y8'''
 
-__filename = '%s/pd_data.csv' % '/'.join(__file__.split('/')[:-1])
+__filename = '%s/pd_data.csv' % os.path.dirname(os.path.abspath(__file__))
 
 
 def get_model():
