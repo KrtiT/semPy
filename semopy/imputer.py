@@ -38,7 +38,7 @@ class Imputer(Model):
 
         """
         self.mod = model
-        self.mx_data_imp = data
+        self.mx_data_imp = data.copy()
         self.n_param_missing = 0
         self.factors = factors
         desc = model.description
@@ -292,7 +292,7 @@ class ImputerMeans(ModelMeans):
 
         """
         self.mod = model
-        self.mx_data_imp = data
+        self.mx_data_imp = data.copy()
         if model.intercepts:
             data = data.copy()
             data['1'] = 1.0

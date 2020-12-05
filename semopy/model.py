@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """semopy 2.0 model module without random effects."""
+from .utils import chol_inv, chol_inv2, cov, delete_mx, chol
 from statsmodels.stats.correlation_tools import cov_nearest
-from .utils import chol_inv, chol_inv2, cov, delete_mx
 from itertools import combinations, chain
 from .constraints import parse_constraint
 from collections import defaultdict
@@ -1007,10 +1007,14 @@ class Model(ModelBase):
         self.fiml_data = d
 
     def predict(self, x: pd.DataFrame, solver='SLSQP', factors=True,
-                ret_opt=False):
+                ret_opt=False, chunk_size=20):
         """
-        Predict/impute data given certain observations.
+        Impute/predict data given certain observations.
 
+        With Model, it might  be better to center x beforehand for factors
+        to have zero mean.
+        Warning: if you seek to compute only factor scores, predict_factors
+        is much more preferable as it is way more faster and stable.
         Parameters
         ----------
         x : pd.DataFrame
@@ -1022,18 +1026,82 @@ class Model(ModelBase):
             If True, factor scores are estimated. The default is True.
         ret_opt : SolverResult, optional
             If True, SolverResult is also returned. The default is False.
-
+        chunk_size : int, optional
+            Changes the number of individuals to be processed at once.
+            In theory, should only affect performance. If None, then the whole
+            dataset is procssed at once. The default is 40.
         Returns
         -------
         pd.DataFrame
             Table with imputed data.
 
         """
+        if chunk_size is not None:
+            data = None
+            opts = list()
+            for i in range(0, x.shape[0], chunk_size):
+                res = self.predict(x.iloc[i:i + chunk_size], solver=solver,
+                                   factors=factors, ret_opt=ret_opt, 
+                                   chunk_size=None)
+                if ret_opt:
+                    opts.append(res[1])
+                    res = res[0]
+                if data is None:
+                    data = res
+                else:
+                    data = data.append(res)
+            return (data, opts) if ret_opt else data
         from .imputer import get_imputer
         imp = get_imputer(self)(self, x, factors=factors)
         res = imp.fit(solver='SLSQP')
         data = imp.get_fancy()
         return data if not ret_opt else (data, res)
+
+    def predict_factors(self, x: pd.DataFrame, method='map'):
+        """
+        Fast factor estimation method. Requires complete data.
+
+        Parameters
+        ----------
+        x : pd.DataFrame
+            Complete data of observed variables.
+        method : str
+            Name of the method to be used. Either 'linear' or 'map'. Linear is
+            just a linear projection, error terms covariances are not taken in
+            account.  "map" is a Maximum a Posteriori estimator that also
+            takes covariance structure into account. MAP estimator might fail
+            if Theta or Psi not PD. The default is 'map'.
+
+        Returns
+        -------
+        Factor scores.
+
+        """
+        lats = self.vars['latent']
+        num_lat = len(lats)
+        if num_lat == 0:
+            return pd.DataFrame([])
+        y = x[self.vars['observed']].values.T
+        inners = self.vars['inner']
+        x = x[filter(lambda v: v not in lats, inners)].values.T
+        m = len(self.vars['_output'])
+        lam1, lam2 = self.mx_lambda[:m, :num_lat], self.mx_lambda[:, num_lat:]
+        y -= lam2 @ x
+        y = y[:m]
+        if method == 'linear':
+            res = np.linalg.pinv(lam1) @ y
+        elif method == 'map':
+            theta = self.mx_theta[:m, :m]
+            t = chol(theta).T
+            y = t @ y
+            lam1 = t @ lam1
+            m = self.mx_beta.shape[0]
+            c = np.linalg.inv(np.identity(m) - self.mx_beta)
+            c = c[:num_lat, :]
+            psi = c @ self.mx_psi @ c.T
+            t = lam1.T @ lam1 + chol_inv(psi)
+            res = chol_inv(t) @ lam1.T @ y
+        return pd.DataFrame(res.T, columns=filter(lambda v: v in lats, inners))
 
     '''
     ----------------------------LINEAR ALGEBRA PART---------------------------

@@ -7,7 +7,7 @@ import pandas as pd
 from .model import Model
 from collections import defaultdict
 from scipy.linalg import block_diag
-from .utils import chol_inv, chol_inv2, delete_mx, cov
+from .utils import chol, chol_inv, chol_inv2, delete_mx, cov
 
 
 class ModelMeans(Model):
@@ -718,6 +718,53 @@ class ModelMeans(Model):
         t = (self.mx_lambda @ t @ self.mx_gamma1 + self.mx_gamma2) @ g
         return pd.DataFrame(t.T, columns=self.vars['observed'],
                             index=exogenous.index)
+
+    def predict_factors(self, x: pd.DataFrame, method='map'):
+        """
+        Fast factor estimation method. Requires complete data.
+
+        Parameters
+        ----------
+        x : pd.DataFrame
+            Complete data of observed variables.
+        method : str
+            Name of the method to be used. Either 'linear' or 'map'. Linear is
+            just a linear projection, error terms covariances are not taken in
+            account.  "map" is a Maximum a Posteriori estimator that also
+            takes covariance structure into account. MAP estimator might fail
+            if Theta or Psi not PD. The default is 'map'.
+
+        Returns
+        -------
+        Factor scores.
+
+        """
+        lats = self.vars['latent']
+        num_lat = len(lats)
+        if num_lat == 0:
+            return pd.DataFrame([])
+        y = x[self.vars['observed']].values.T
+        inners = self.vars['inner']
+        x = x[filter(lambda v: v not in lats, inners)].values.T
+        m = len(self.vars['_output'])
+        lam1, lam2 = self.mx_lambda[:m, :num_lat], self.mx_lambda[:, num_lat:]
+        y -= lam2 @ x + self.mx_gamma2 @ self.mx_g
+        y = y[:m]
+        if method == 'linear':
+            res = np.linalg.pinv(lam1) @ y
+        elif method == 'map':
+            center = self.mx_gamma1[:m, :] @ self.mx_g
+            theta = self.mx_theta[:m, :m]
+            t = chol(theta).T
+            y = t @ y
+            lam1 = t @ lam1
+            m = self.mx_beta.shape[0]
+            c = np.linalg.pinv(np.identity(m) - self.mx_beta)
+            c = c[:num_lat, :]
+            psi = chol(c @ self.mx_psi @ c.T)
+            t = lam1.T @ lam1 + psi @ psi.T
+            res = np.linalg.pinv(t) @ (lam1.T @ y + psi.T @ center)
+        return pd.DataFrame(res.T, columns=filter(lambda v: v in lats, inners))
 
     '''
     -------------------------Fisher Information Matrix------------------------

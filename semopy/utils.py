@@ -99,6 +99,28 @@ def cor(x: np.ndarray):
         cor.resize((1,1))
     return cor
 
+def chol(x: np.array, inv=True):
+    """
+    Calculate cholesky decomposition of matrix.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        Matrix.
+    inv : bool, optional
+        If True, returns L^{-1} instead. The default i True.
+
+    Returns
+    -------
+    Cholesky decomposition matrix L.
+
+    """
+    c, info = lapack.dpotrf(x)
+    if inv:
+        lapack.dtrtri(c, overwrite_c=1)
+    return c
+    
+
 
 def chol_inv(x: np.array):
     """
