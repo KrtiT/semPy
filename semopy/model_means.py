@@ -330,6 +330,8 @@ class ModelMeans(Model):
         if data is None:
             if not hasattr(self, 'mx_data'):
                 raise Exception("Data must be provided.")
+            if clean_slate:
+                self.prepare_params()
             return
         else:
             data = data.copy()

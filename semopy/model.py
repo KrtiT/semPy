@@ -862,6 +862,8 @@ class Model(ModelBase):
             has_cov = hasattr(self, 'mx_cov')
             if not has_data and not has_cov:
                 raise Exception('Either data or cov must be provided.')
+            if clean_slate:
+                self.prepare_params()
             return
         if data is None:
             logging.info('Providing only covariance matrix is unadvised as it\
@@ -883,9 +885,9 @@ class Model(ModelBase):
             if groups is not None:
                 logging.warning('"groups" argument is redunant with cov \
                                 matrix.')
-        if data is not None or cov is not None:
+        if (data is not None) or (cov is not None):
             self.load_starting_values()
-        if clean_slate or not hasattr(self, 'param_vals'):
+        if (clean_slate) or (not hasattr(self, 'param_vals')):
             self.prepare_params()
 
     def fit(self, data=None, cov=None, obj='MLW', solver='SLSQP', groups=None,
