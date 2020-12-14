@@ -277,4 +277,52 @@ def calc_zkz(groups: pd.Series, k: pd.DataFrame):
                            "provided in a dataset.")
     zkz = z @ k @ z.T
     return zkz
-        
+
+
+def calc_degenerate_ml(model, variables: set, x=None):
+    """
+    Calculate ML with degenerate sigma.
+
+    Parameters
+    ----------
+    model : Model
+        DESCRIPTION.
+    variables : set
+        List/set of variable to exclude from Sigma.
+    x : np.ndarray, optional
+        Paremters vector. The default is None.
+
+    Returns
+    -------
+    float
+        Degenerate ML.
+
+    """
+    
+    from .model import Model
+    if type(model) is not Model:
+        raise Exception('ModelMeans or ModelEffects degenerate ML is not '
+                        'supported.')
+    obs = model.vars['observed']
+    inds = [obs.index(v) for v in variables]
+    def deg_sigma():
+        sigma, (m, c) = true_sigma()
+        sigma = delete_mx(sigma, inds)
+        m = np.delete(m, inds, axis=0)
+        return sigma, (m, c)
+    true_sigma = model.calc_sigma
+    true_cov = model.mx_cov
+    true_covlogdet = model.cov_logdet
+    model.mx_cov = delete_mx(true_cov, inds)
+    model.cov_logdet = np.linalg.slogdet(model.mx_cov)[1]
+    model.calc_sigma = deg_sigma
+    if x is None:
+        x = model.param_vals
+    if type(model) is Model:
+        ret = model.obj_mlw(x)
+    else:
+        ret = model.obj_fiml(x)
+    model.calc_sigma = true_sigma
+    model.mx_cov = true_cov
+    model.cov_logdet = true_covlogdet
+    return ret
