@@ -375,7 +375,7 @@ def calc_bic(model, lh=None):
     return np.log(n) * k - 2 * lh
 
 
-def calc_se(model, information='expected'):
+def calc_se(model, information='expected', robust=False):
     """
     Calculate standard errors.
 
@@ -386,6 +386,9 @@ def calc_se(model, information='expected'):
     information : str
         If 'expected', expected Fisher information is used. Otherwise,
         observed information is employed. The default is 'expected'.
+    robust : bool, optional
+        If True, then robust SE are computed instead. Robustness here means
+        that MLR-esque sandwich correction is applied. The default is False.
 
     Returns
     -------
@@ -393,16 +396,12 @@ def calc_se(model, information='expected'):
         list of standard errors of model's active parameters.
 
     """
-    if information == 'expected':
-        asymptoticCov = model.calc_fim(inverse=True)[1]
-        variances = asymptoticCov.diagonal().copy()
-    else:
-        from numdifftools import Gradient, Hessian
+    if robust or information != 'expected':
         mult = model.n_samples / 2
         if hasattr(model, 'last_result'):
             fun, grad = model.get_objective(model.last_result.name_obj)
-            if model.last_result.name_obj == 'MatNorm':
-                mult = 1.0
+            if model.last_result.name_obj in ('MatNorm', 'FIML'):
+                mult = 0.5
         else:
             try:
                 fun, grad = model.get_objective('MatNorm')
@@ -412,11 +411,20 @@ def calc_se(model, information='expected'):
                 except KeyError:
                     fun, grad = model.get_objective('MLW')
                     mult = 1.0
+        
+    if information == 'expected':
+        mx_inf = model.calc_fim(inverse=True)[1]
+    else:
+        from numdifftools import Gradient, Hessian
         if grad is None:
             hess = Hessian(fun)(model.param_vals)
         else:
             hess = Gradient(grad)(model.param_vals)
-        variances = np.linalg.pinv(hess).diagonal().copy() / mult
+        mx_inf = np.linalg.pinv(hess) / mult
+    if robust:
+        g = sum(np.outer(g,g) for g in model.grad_se_g(model.param_vals))
+        mx_inf = mx_inf @ g @ mx_inf
+    variances = mx_inf.diagonal().copy()
     inds = (variances < 0) & (variances > -1e-1)
     variances[inds] = 1e-12
     variances[variances < 0] = np.nan  # So numpy won't throw a warning.
@@ -515,7 +523,7 @@ def calc_stats(model):
     return pd.DataFrame(d, index=['Value'])
 
 
-def gather_statistics(model, information='expected'):
+def gather_statistics(model, information='expected', robust=False):
     """
     Retrieve all statistics as specified in SEMStatistics structure.
 
@@ -527,6 +535,9 @@ def gather_statistics(model, information='expected'):
     information : str
         If 'expected', expected Fisher information is used. Otherwise,
         observed information is employed. The default is 'expected'.
+    robust : bool, optional
+        If True, then robust SE are computed instead. Robustness here means
+        that MLR-esque sandwich correction is applied. The default is False.
 
     Raises
     ------
@@ -545,7 +556,7 @@ def gather_statistics(model, information='expected'):
         raise Exception('Can''t gather statitics from model until it is fit.')
     values = model.param_vals.copy()
     try:
-        std_errors = calc_se(model, information=information)
+        std_errors = calc_se(model, information=information, robust=robust)
     except np.linalg.LinAlgError:
         std_errors = np.array([np.nan] * len(values))
     z_scores = calc_zvals(model, std_errors)

@@ -9,7 +9,7 @@ from . import stats
 
 
 def inspect(model, mode='list', what='est', information='expected',
-            std_est=False):
+            std_est=False, se_robust=False):
     """
     Get fancy view of model parameters estimates.
 
@@ -32,6 +32,9 @@ def inspect(model, mode='list', what='est', information='expected',
         If True, standardized coefficients are also returned as Std. Ests col.
         If it is 'lv', then output variables are not standardized. The default
         is False.
+    se_robust : bool, optional
+        If True, then robust SE are computed instead. Robustness here means
+        that MLR-esque sandwich correction is applied. The default is False.
 
     Returns
     -------
@@ -42,7 +45,8 @@ def inspect(model, mode='list', what='est', information='expected',
     if isinstance(model, Optimizer):
         model = model.model
     if mode == 'list':
-        return inspect_list(model, information=information, std_est=std_est)
+        return inspect_list(model, information=information, std_est=std_est,
+                            se_robust=se_robust)
     elif mode == 'mx':
         return inspect_matrices(model, what=what)
 
@@ -152,7 +156,8 @@ def inspect_matrices(model: Model, what='est'):
     return ret
 
 
-def inspect_list(model: Model, information='expected', std_est=False):
+def inspect_list(model: Model, information='expected', std_est=False,
+                 se_robust=False):
     """
     Get a pandas DataFrame containin a view of parameters estimates.
 
@@ -167,6 +172,9 @@ def inspect_list(model: Model, information='expected', std_est=False):
     std_est : bool
         If True, standardized coefficients are also returned as Std. Ests col.
         The default is False.
+    se_robust : bool, optional
+        If True, then robust SE are computed instead. Robustness here means
+        that MLR-esque sandwich correction is applied. The default is False.
 
     Returns
     -------
@@ -187,7 +195,7 @@ def inspect_list(model: Model, information='expected', std_est=False):
         if std_est == 'lv':
             std_full[:] = 1.0
     if information is not None:
-        se = stats.calc_se(model, information=information)
+        se = stats.calc_se(model, information=information, robust=se_robust)
         zscores = stats.calc_zvals(model, std_errors=se)
         pvals = stats.calc_pvals(model, z_scores=zscores)
     else:

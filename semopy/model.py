@@ -512,7 +512,7 @@ class Model(ModelBase):
                                active=active, symmetric=symm, bound=bound)
 
     def inspect(self, mode='list', what='est', information='expected',
-                std_est=False):
+                std_est=False, se_robust=False):
         """
         Get fancy view of model parameters estimates.
     
@@ -535,6 +535,10 @@ class Model(ModelBase):
             If True, standardized coefficients are also returned as Std. Ests
             col. If it is 'lv', then output variables are not standardized.
             The default is False.
+        se_robust : bool, optional
+            If True, then robust SE are computed instead. Robustness here
+            means that MLR-esque sandwich correction is applied. The default
+            is False.
 
         Returns
         -------
@@ -544,7 +548,7 @@ class Model(ModelBase):
         """
         from .inspector import inspect
         return inspect(self, mode=mode, what=what, information=information,
-                       std_est=std_est)
+                       std_est=std_est, se_robust=se_robust)
 
     def operation_start(self, operation):
         """
@@ -1465,3 +1469,22 @@ class Model(ModelBase):
                 fim_inv = np.linalg.pinv(fim)
             return (fim, fim_inv)
         return fim
+
+    def grad_se_g(self, x: np.ndarray):
+        self.update_matrices(x)
+        try:
+            sigma, (m, c) = self.calc_sigma()
+            sigma_grad = self.calc_sigma_grad(m, c)
+            inv_sigma = np.linalg.pinv(sigma)
+        except np.linalg.LinAlgError:
+            t = np.zeros((len(x),))
+            t[:] = np.inf
+            return t
+        res = list()
+        mx_i = np.identity(sigma.shape[0])
+        for i in range(self.mx_data.shape[0]):
+            x = self.mx_data[i, np.newaxis]
+            t = inv_sigma @ (mx_i -  x.T @ x @ inv_sigma)
+            res.append(np.array([np.einsum('ij,ji->', t, g)
+                                 for g in sigma_grad]) / 2)      
+        return res

@@ -897,3 +897,36 @@ class ModelMeans(Model):
             return (fim, fim_inv)
         return fim
 
+
+    def grad_se_g(self, x: np.ndarray):
+        self.update_matrices(x)
+        try:
+            sigma, (m, c) = self.calc_sigma()
+            sigma_grad = self.calc_sigma_grad(m, c)
+            mean_grad = self.calc_mean_grad(m, c)
+            mean = self.calc_mean(m).T
+            inv_sigma = np.linalg.pinv(sigma)
+        except np.linalg.LinAlgError:
+            t = np.zeros((len(x),))
+            t[:] = np.inf
+            return t
+        res = list()
+        mx_i = np.identity(sigma.shape[0])
+        for i in range(self.mx_data.shape[0]):
+            x = self.mx_data[i] - mean[i]
+            x = x[:, np.newaxis]
+            t = inv_sigma @ (mx_i -  x @ x.T @ inv_sigma)
+            t2 = (inv_sigma @ x).flatten()
+            g = np.zeros_like(self.param_vals)
+            for i, (s_g, m_g) in enumerate(zip(sigma_grad, mean_grad)):
+                if len(m_g.shape):
+                    m = np.dot(t2, m_g[:, i])
+                else:
+                    m = 0.0
+                if len(s_g.shape):
+                    cov = np.einsum('ij,ji->', t, s_g) / 2
+                else:
+                    cov = 0
+                g[i] += m + cov
+            res.append(g)      
+        return res
