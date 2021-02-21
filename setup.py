@@ -18,7 +18,7 @@ setup(
       long_description_content_type="text/markdown",
       url="https://semopy.com",
       packages=find_packages(),
-      python_requires=">=3.7"
+      python_requires=">=3.7",
       classifiers=[
               "Programming Language :: Python :: 3.7",
 	      "Programming Language :: Python :: 3.8",
