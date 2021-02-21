@@ -1498,8 +1498,10 @@ class Model(ModelBase):
             return t
         res = list()
         mx_i = np.identity(sigma.shape[0])
+        data = self.mx_data.copy()
+        data -= data.mean(axis=0)
         for i in range(self.mx_data.shape[0]):
-            x = self.mx_data[i, np.newaxis]
+            x = data[i, np.newaxis]
             t = inv_sigma @ (mx_i -  x.T @ x @ inv_sigma)
             res.append(np.array([np.einsum('ij,ji->', t, g)
                                  for g in sigma_grad]) / 2)      

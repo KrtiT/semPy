@@ -714,8 +714,15 @@ class ModelMeans(Model):
             DataFrame containing predictions of endogenous observed variables.
 
         """
-        
-        g = exogenous[self.vars['observed_exogenous']].values.T 
+        exos = self.vars['observed_exogenous']
+        exogenous = exogenous.copy()
+        for v in exos:
+            if v not in exogenous.columns:
+                if v != '1':
+                    exogenous[v] = 0
+                else:
+                    exogenous[v] = 1
+        g = exogenous[exos].values.T 
         t = np.linalg.inv(np.identity(self.mx_beta.shape[0]) - self.mx_beta)
         t = (self.mx_lambda @ t @ self.mx_gamma1 + self.mx_gamma2) @ g
         return pd.DataFrame(t.T, columns=self.vars['observed'],
@@ -928,6 +935,9 @@ class ModelMeans(Model):
             return t
         res = list()
         mx_i = np.identity(sigma.shape[0])
+        data = self.mx_data.copy()
+        if not self.intercepts:
+            data -= data.mean(axis=0)
         for i in range(self.mx_data.shape[0]):
             x = self.mx_data[i] - mean[i]
             x = x[:, np.newaxis]

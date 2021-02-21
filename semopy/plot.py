@@ -90,7 +90,7 @@ def semplot(mod: Model, filename: str, inspection=None, plot_covs=False,
         pval = row['p-value']
         label = '{:.3f}'.format(float(est))
         if pval !='-':
-            label += '\np-val: {:.2f}'.format(float(pval))
+            label += r'\np-val: {:.2f}'.format(float(pval))
         g.edge(rval, lval, label=label)
     if plot_covs:
         covs = inspection[inspection['op'] == '~~']
@@ -101,7 +101,7 @@ def semplot(mod: Model, filename: str, inspection=None, plot_covs=False,
             pval = row['p-value']
             label = '{:.3f}'.format(float(est))
             if pval !='-':
-                label += '\np-val: {:.2f}'.format(float(pval))
+                label += r'\np-val: {:.2f}'.format(float(pval))
             g.edge(rval, lval, label=label, dir='both', style='dashed')
     g.render(filename, view=show)
     return g
