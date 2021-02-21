@@ -404,7 +404,7 @@ class ModelMeans(Model):
                               groups=groups, clean_slate=clean_slate)
             return res
         else:
-            raise NotImplementedError(f"Unknown method {{obj}}.")
+            raise NotImplementedError(f"Unknown method {obj}.")
 
     '''
     ----------------------------LINEAR ALGEBRA PART---------------------------
@@ -824,8 +824,8 @@ class ModelMeans(Model):
                 mx_fixed[i, j] = np.einsum('ij,ij->', mean_grad[inds_mean[i]],
                                            mgs[j])
         mx_fixed = mx_fixed + np.triu(mx_fixed, 1).T
-        inds_mean = np.array(inds_mean, dtype=np.int)
-        inds_sigma = np.array(inds_sigma, dtype=np.int)
+        inds_mean = np.array(inds_mean, dtype=int)
+        inds_sigma = np.array(inds_sigma, dtype=int)
         inds = np.append(inds_mean, inds_sigma)
         fim = block_diag(mx_fixed, mx_var)
         fim = fim[:, inds][:, inds]
@@ -899,6 +899,22 @@ class ModelMeans(Model):
 
 
     def grad_se_g(self, x: np.ndarray):
+        """
+        Calculate a list of separate likelihoods for each observation.
+
+        A helper function that might be used to estimate Huber-White sandwich
+        corrections.
+        Parameters
+        ----------
+        x : np.ndarray
+            Parameters vector.
+
+        Returns
+        -------
+        list
+            List of len n_samples.
+
+        """
         self.update_matrices(x)
         try:
             sigma, (m, c) = self.calc_sigma()

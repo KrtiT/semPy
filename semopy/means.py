@@ -104,7 +104,7 @@ class MeanEstimator():
 
         Returns
         -------
-        None.
+        Optimization result.
 
         """
         fun, grad = self.get_objective(obj)

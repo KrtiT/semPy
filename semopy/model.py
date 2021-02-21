@@ -1471,6 +1471,22 @@ class Model(ModelBase):
         return fim
 
     def grad_se_g(self, x: np.ndarray):
+        """
+        Calculate a list of separate likelihoods for each observation.
+
+        A helper function that might be used to estimate Huber-White sandwich
+        corrections.
+        Parameters
+        ----------
+        x : np.ndarray
+            Parameters vector.
+
+        Returns
+        -------
+        list
+            List of len n_samples.
+
+        """
         self.update_matrices(x)
         try:
             sigma, (m, c) = self.calc_sigma()

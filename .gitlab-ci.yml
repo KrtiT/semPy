@@ -1,0 +1,17 @@
+image: "python:3.9"
+
+variables:
+  PYTHON: "python3"
+
+before_script:
+  - pip install -r requirements.txt
+  - ${PYTHON} -v
+
+stages:
+  - tests
+
+
+unit_tests:
+  stage: tests
+  script:
+    - ${PYTHON} -m unittest semopy/tests/*.py

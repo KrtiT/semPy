@@ -35,7 +35,7 @@ Then, in **semopy** syntax it becomes:
 
 `y ~ x1 + x2`
 
-Parameters Î²1, Î²2 are to be estimated by **semopy**. In some cases a user might want to fix some of parameters to particular value. For instance, let's assume that we want Î²1 to stay equal to 2.0 and we are only interested in estimating Î²2:
+Parameters β1, β2 are to be estimated by **semopy**. In some cases a user might want to fix some of parameters to particular value. For instance, let's assume that we want Î²1 to stay equal to 2.0 and we are only interested in estimating β2:
 
 `y ~ 2*x1 + x2`
 

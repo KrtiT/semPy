@@ -397,10 +397,20 @@ def calc_se(model, information='expected', robust=False):
 
     """
     if robust or information != 'expected':
+        # An explanation of "mult" for a reader:
+        # When I was writing code and deriving some formulas for different
+        # objective functions, I was finding myself quiet often dropping
+        # constants when they appeared to be not necessary. Sometimes I didn't.
+        # It is a mess. Here I am taking that in account. Some may say that
+        # that I'd better just get those goddamn constants back in place
+        # and get rid of this clusterfuck, and they'd be right, but I am
+        # currently too hesitant to do it myself. 
+        # My sincere apologies.
+        # Georgy
         mult = model.n_samples / 2
         if hasattr(model, 'last_result'):
             fun, grad = model.get_objective(model.last_result.name_obj)
-            if model.last_result.name_obj in ('MatNorm', 'FIML'):
+            if model.last_result.name_obj in ('FIML'):
                 mult = 0.5
         else:
             try:
