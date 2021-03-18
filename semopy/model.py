@@ -895,7 +895,7 @@ class Model(ModelBase):
             self.prepare_params()
 
     def fit(self, data=None, cov=None, obj='MLW', solver='SLSQP', groups=None,
-            clean_slate=False, regularization=None, n_samples=None):
+            clean_slate=False, regularization=None, n_samples=None, **kwargs):
         """
         Fit model to data.
 
@@ -946,7 +946,7 @@ class Model(ModelBase):
         fun, grad = self.get_objective(obj, regularization=regularization)
         solver = Solver(solver, fun, grad, self.param_vals,
                         constrs=self.constraints,
-                        bounds=self.get_bounds())
+                        bounds=self.get_bounds(), **kwargs)
         res = solver.solve()
         res.name_obj = obj
         self.param_vals = res.x

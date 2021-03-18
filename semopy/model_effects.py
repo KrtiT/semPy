@@ -154,11 +154,12 @@ class ModelEffects(ModelMeans):
         if clean_slate or not hasattr(self, 'param_vals'):
             self.prepare_params()
 
-    def _fit(self, obj='REML', solver='SLSQP'):
+    def _fit(self, obj='REML', solver='SLSQP', **kwargs):
         fun, grad = self.get_objective(obj)
         solver = Solver(solver, fun, grad, self.param_vals,
                         constrs=self.constraints,
-                        bounds=self.get_bounds())
+                        bounds=self.get_bounds(),
+                        **kwargs)
         res = solver.solve()
         res.name_obj = obj
         self.param_vals = res.x
@@ -167,7 +168,7 @@ class ModelEffects(ModelMeans):
         return res
 
     def fit(self, data=None, group=None, k=None, cov=None, obj='ML',
-            solver='SLSQP', clean_slate=False, regularization=None):
+            solver='SLSQP', clean_slate=False, regularization=None, **kwargs):
         """
         Fit model to data.
 
@@ -213,17 +214,17 @@ class ModelEffects(ModelMeans):
             if self.__loaded != 'REML':
                 self.load_reml()
             self.calc_fim = self.calc_fim_reml
-            res_reml = self._fit(obj='REML', solver=solver)
+            res_reml = self._fit(obj='REML', solver=solver, **kwargs)
             self.load_ml(fake=True)
             sigma, (self.mx_m, _) = self.calc_sigma()
             self.mx_r_inv = chol_inv(self.calc_r(sigma))
             self.mx_w_inv = self.calc_w_inv(sigma)[0]
-            res_reml2 = self._fit(obj='REML2', solver=solver)
+            res_reml2 = self._fit(obj='REML2', solver=solver, **kwargs)
             return (res_reml, res_reml2)
         elif obj == 'ML':
             if self.__loaded != 'ML':
                 self.load_ml()
-            res = self._fit(obj='ML', solver=solver)
+            res = self._fit(obj='ML', solver=solver, **kwargs)
             return res
         else:
             raise NotImplementedError(f'Unknown objective {obj}.')

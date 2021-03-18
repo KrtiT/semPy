@@ -2,8 +2,9 @@
 # -*- coding: utf-8 -*-
 """Contains Solver class that wraps around scipy and possibly other
 optimization packages/procedures."""
-from scipy.optimize import minimize
+from scipy.optimize import minimize, differential_evolution
 from dataclasses import dataclass
+from copy import copy
 import logging
 import numpy as np
 
@@ -112,9 +113,27 @@ class Solver():
             Information on optimization result.
 
         """
-        res = minimize(self.fun, self.start, jac=self.grad, bounds=self.bounds,
-                       constraints=self.constraints, options=self.options,
-                       method=self.method, *self.extra_options)
+        if self.method == 'de':
+            t = copy(self.extra_options)
+            if 'b_max' in t:
+                bmax = t['b_max']
+                del t['b_max']
+            else:
+                bmax = 10
+            b = self.bounds
+            bs = list()
+            for (a, b) in b:
+                if a == None:
+                    a = -bmax
+                if b == None:
+                    b = bmax
+                bs.append((a, b))
+            res = differential_evolution(self.fun, bounds=bs,
+                       constraints=self.constraints, *t)
+        else:
+            res = minimize(self.fun, self.start, jac=self.grad, bounds=self.bounds,
+                           constraints=self.constraints, options=self.options,
+                           method=self.method, *self.extra_options)
         try:
             nit = res.nit
         except AttributeError:

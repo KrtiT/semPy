@@ -96,4 +96,4 @@ Tutorial and overview of **semopy** features are available at the [project's web
 * **Igolkina A. Anna** - *Supervisor* - [iganna](https://github.com/iganna) - Engineer, SPbPU
 
 ## License
-This project is licensed under the GPL License - see the LICENSE.md file for details.
+This project is licensed under the MIT License - see the LICENSE.md file for details.

@@ -353,7 +353,7 @@ class ModelMeans(Model):
             self.prepare_fiml()
 
     def fit(self, data=None, cov=None, obj='ML', solver='SLSQP', groups=None,
-            clean_slate=False):
+            clean_slate=False, **kwargs):
         """
         Fit model to data.
 
@@ -392,16 +392,16 @@ class ModelMeans(Model):
         if obj == 'REML':
             self.calc_fim = self.calc_fim_reml
             res = super().fit(data=data, cov=cov, obj='REML', solver=solver,
-                              groups=groups, clean_slate=clean_slate)
+                              groups=groups, clean_slate=clean_slate, **kwargs)
             sigma, (self.mx_m, self.mx_c) = self.calc_sigma()
             self.mx_sigma_inv = chol_inv(sigma)
             res_m = super().fit(obj='GLS', solver=solver,
-                                groups=groups, clean_slate=False)
+                                groups=groups, clean_slate=False, **kwargs)
             return res, res_m
         elif obj == 'ML':
             self.calc_fim = self.calc_fim_ml
             res = super().fit(data=data, cov=cov, obj='FIML', solver=solver,
-                              groups=groups, clean_slate=clean_slate)
+                              groups=groups, clean_slate=clean_slate, **kwargs)
             return res
         else:
             raise NotImplementedError(f"Unknown method {obj}.")
