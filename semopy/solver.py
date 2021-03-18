@@ -129,11 +129,11 @@ class Solver():
                     b = bmax
                 bs.append((a, b))
             res = differential_evolution(self.fun, bounds=bs,
-                       constraints=self.constraints, *t)
+                       constraints=self.constraints, **t)
         else:
             res = minimize(self.fun, self.start, jac=self.grad, bounds=self.bounds,
                            constraints=self.constraints, options=self.options,
-                           method=self.method, *self.extra_options)
+                           method=self.method, **self.extra_options)
         try:
             nit = res.nit
         except AttributeError:
