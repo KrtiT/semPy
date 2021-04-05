@@ -184,7 +184,7 @@ def chol_inv2(x: np.ndarray):
 
 
 def compare_results(model, true: pd.DataFrame, error='relative',
-                    ignore_cov=True):
+                    ignore_cov=True, drop_equal=True, return_table=False):
     """
     Compare parameter estimates in model to parameter values in a DataFrame.
 
@@ -200,6 +200,12 @@ def compare_results(model, true: pd.DataFrame, error='relative',
         calculated otherwise. The default is 'relative'.
     ignore_cov : bool, optional
         If True, then covariances (~~) are ignored. The default is False.
+    drop_equal : bool, optional
+        If True, then parameters that are exactly equal in model are dropped.
+        Effectively, it clears result from fixed loadings in Lambda. The
+        default is True.
+    return_table : bool, optional
+        If True, then pd.DataFrame table is returned instead of list.
 
     Raises
     ------
@@ -214,6 +220,12 @@ def compare_results(model, true: pd.DataFrame, error='relative',
     """
     ins = model.inspect(information=None)
     errs = list()
+    if return_table:
+        ops = list()
+        lvals = list()
+        rvals = list()
+        ests = list()
+        trues = list()
     for row in true.iterrows():
         lval, op, rval, value = row[1].values[:4]
         if op == '~~' and ignore_cov:
@@ -225,10 +237,24 @@ def compare_results(model, true: pd.DataFrame, error='relative',
         if len(est) == 0:
             raise Exception(f'Unknown estimate: {row}.')
         est = est.Estimate.values[0]
+        if drop_equal and est == value:
+            continue
         if error == 'relative':
             errs.append(abs((value - est) / est))
         else:
             errs.append(abs(value - est))
+        if return_table:
+            ops.append(op)
+            lvals.append(lval)
+            rvals.append(rval)
+            ests.append(est)
+            trues.append(value)
+    if return_table:
+        d = {'lval': lvals, 'op': ops, 'rval': rvals, 'Error': errs,
+             'Estimate': ests, 'True': trues}
+        df = pd.DataFrame.from_dict(d).sort_values('Error', axis=0, 
+                                                   ascending=False)
+        return df
     return errs
 
 

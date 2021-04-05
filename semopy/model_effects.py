@@ -5,8 +5,9 @@ import pandas as pd
 import numpy as np
 from .model_means import ModelMeans
 from .utils import chol_inv, chol_inv2, cov, kron_identity, calc_zkz, chol
-from scipy.linalg import block_diag
+from scipy.linalg import block_diag, solve_sylvester
 from .solver import Solver
+from itertools import combinations
 import logging
 
 
@@ -22,7 +23,7 @@ class ModelEffects(ModelMeans):
     symb_rf_covariance = '~R~'
 
     def __init__(self, description: str, mimic_lavaan=False, baseline=False,
-                 intercepts=True):
+                 intercepts=True, d_mode='diag'):
         """
         Instantiate Random Effects SEM.
 
@@ -47,12 +48,19 @@ class ModelEffects(ModelMeans):
             accessed via "1" symbol in a regression equation, i.e. x1 ~ 1. The
             default is False.
 
+        d_mode : str
+            Mode of D matrix. If "diag", then D has unique params on the
+            diagonal. If "full", then D is fully parametrised. If
+            "identity", then D is an identity matrix, multiplied by a single
+            variance parameter (scalar). The default is "diag".
+
         Returns
         -------
         None.
 
         """
         self.dict_effects[self.symb_rf_covariance] = self.effect_rf_covariance
+        self.d_mode = d_mode
         super().__init__(description, mimic_lavaan=mimic_lavaan,
                          baseline=baseline, intercepts=intercepts)
         self.objectives = {'REML': (self.obj_reml, self.grad_reml),
@@ -75,11 +83,26 @@ class ModelEffects(ModelMeans):
 
         """
         super().preprocess_effects(effects)
-        for v in self.vars['observed']:
-            if v not in self.vars['latent']:  # Workaround for Imputer
-                t = effects[self.symb_rf_covariance][v]
+        mode = self.d_mode
+        symb = self.symb_rf_covariance
+        obs = self.vars['observed']
+        if mode in ('diag', 'full'):
+            for v in obs:
+                t = effects[symb][v]
                 if v not in t:
                     t[v] = None
+            if mode == 'full':
+                for a, b in combinations(obs, 2):
+                    t = effects[symb][a]
+                    tt = effects[symb][b]
+                    if (v not in t) and (v not in tt):
+                        t[b] = None
+        else:
+            if mode != 'identity':
+                raise Exception(f'Unknown mode "{mode}".')
+            param = 'paramD'
+            for v in obs:
+                t = effects[symb][v][v] = param
 
     def build_d(self):
         """
@@ -122,7 +145,7 @@ class ModelEffects(ModelMeans):
 
         KeyError
             Rises when there are missing variables from the data.
-        Exceptio
+        Exception
             Rises when group parameter is None.
         Returns
         -------
@@ -142,7 +165,6 @@ class ModelEffects(ModelMeans):
         obs = self.vars['observed']
         exo = self.vars['observed_exogenous']
         if self.intercepts:
-            data = data.copy()
             data['1'] = 1.0
         cols = data.columns
         missing = (set(obs) | set(exo)) - set(set(cols))
@@ -217,8 +239,8 @@ class ModelEffects(ModelMeans):
             res_reml = self._fit(obj='REML', solver=solver, **kwargs)
             self.load_ml(fake=True)
             sigma, (self.mx_m, _) = self.calc_sigma()
-            self.mx_r_inv = chol_inv(self.calc_r(sigma))
-            self.mx_w_inv = self.calc_w_inv(sigma)[0]
+            self.mx_r_inv = chol_inv(self.calc_l(sigma))
+            self.mx_w_inv = self.calc_t_inv(sigma)[0]
             res_reml2 = self._fit(obj='REML2', solver=solver, **kwargs)
             return (res_reml, res_reml2)
         elif obj == 'ML':
@@ -308,7 +330,7 @@ class ModelEffects(ModelMeans):
     ---------------------------R and W matrices-------------------------------
     '''
 
-    def calc_r(self, sigma: np.ndarray):
+    def calc_l(self, sigma: np.ndarray):
         """
         Calculate covariance across columns matrix R.
 
@@ -326,7 +348,7 @@ class ModelEffects(ModelMeans):
         n = self.num_n
         return n * sigma + self.mx_d * self.trace_zkz
 
-    def calc_r_grad(self, sigma_grad: list):
+    def calc_l_grad(self, sigma_grad: list):
         """
         Calculate gradient of R matrix.
 
@@ -350,7 +372,7 @@ class ModelEffects(ModelMeans):
             grad.append(g)
         return grad
 
-    def calc_w_inv(self, sigma: np.ndarray):
+    def calc_t_inv(self, sigma: np.ndarray):
         """
         Calculate inverse and logdet of covariance across rows matrix W.
 
@@ -367,14 +389,14 @@ class ModelEffects(ModelMeans):
         R^{-1} and ln|R|.
 
         """
-        w = self.calc_w(sigma)
+        w = self.calc_t(sigma)
         if np.any(w < 1e-9):
             raise np.linalg.LinAlgError
         return 1 / w, np.sum(np.log(w))
 
-    def calc_w(self, sigma: np.ndarray):
+    def calc_t(self, sigma: np.ndarray):
         """
-        Calculate W matrix for testing purposes.
+        Calculate W matrix.
 
         Parameters
         ----------
@@ -391,7 +413,7 @@ class ModelEffects(ModelMeans):
         tr_d = np.trace(self.mx_d)
         return tr_d * self.mx_s + tr_sigma
 
-    def calc_w_grad(self, sigma_grad: list):
+    def calc_t_grad(self, sigma_grad: list):
         """
         Calculate gradient of W matrix.
 
@@ -415,7 +437,7 @@ class ModelEffects(ModelMeans):
             grad.append(g)
         return grad
 
-    def calc_w_inv_grad(self, inv_w: np.ndarray, sigma_grad: list):
+    def calc_t_inv_grad(self, inv_w: np.ndarray, sigma_grad: list):
         """
         Calculate gradient of W inverse and logdet matrix.
 
@@ -569,9 +591,9 @@ class ModelEffects(ModelMeans):
         self.update_matrices(x)
         sigma, _ = self.calc_sigma()
         try:
-            r = self.calc_r(sigma)
+            r = self.calc_l(sigma)
             r_inv, logdet_r = chol_inv2(r)
-            w_inv, logdet_w = self.calc_w_inv(sigma)
+            w_inv, logdet_w = self.calc_t_inv(sigma)
         except np.linalg.LinAlgError:
             return np.inf
         mx = self.mx_data_transformed
@@ -601,9 +623,9 @@ class ModelEffects(ModelMeans):
         grad = np.zeros_like(x)
         sigma, (m, c) = self.calc_sigma()
         try:
-            r = self.calc_r(sigma)
+            r = self.calc_l(sigma)
             r_inv = chol_inv(r)
-            w_inv, _ = self.calc_w_inv(sigma)
+            w_inv, _ = self.calc_t_inv(sigma)
         except np.linalg.LinAlgError:
             grad[:] = np.inf
             return grad
@@ -616,8 +638,8 @@ class ModelEffects(ModelMeans):
         V3 = B @ r_inv
         V2 = self.num_n * r_inv / tr_r - A @ V3
         sigma_grad = self.calc_sigma_grad(m, c)
-        r_grad = self.calc_r_grad(sigma_grad)
-        w_grad, w_grad_logdet = self.calc_w_inv_grad(w_inv, sigma_grad)
+        r_grad = self.calc_l_grad(sigma_grad)
+        w_grad, w_grad_logdet = self.calc_t_inv_grad(w_inv, sigma_grad)
         n, m = self.num_n, self.num_m
         for i, (d_r, d_w, d_l) in enumerate(zip(r_grad, w_grad,
                                                 w_grad_logdet)):
@@ -710,9 +732,9 @@ class ModelEffects(ModelMeans):
         self.update_matrices(x)
         sigma, (m, _) = self.calc_sigma()
         try:
-            r = self.calc_r(sigma)
+            r = self.calc_l(sigma)
             r_inv, logdet_r = chol_inv2(r)
-            w_inv, logdet_w = self.calc_w_inv(sigma)
+            w_inv, logdet_w = self.calc_t_inv(sigma)
         except np.linalg.LinAlgError:
             return np.inf
         mean = self.calc_mean(m)
@@ -743,9 +765,9 @@ class ModelEffects(ModelMeans):
         grad = np.zeros_like(x)
         sigma, (m, c) = self.calc_sigma()
         try:
-            r = self.calc_r(sigma)
+            r = self.calc_l(sigma)
             r_inv = chol_inv(r)
-            w_inv, _ = self.calc_w_inv(sigma)
+            w_inv, _ = self.calc_t_inv(sigma)
         except np.linalg.LinAlgError:
             grad[:] = np.inf
             return grad
@@ -761,8 +783,8 @@ class ModelEffects(ModelMeans):
         
         sigma_grad = self.calc_sigma_grad(m, c)
         mean_grad = self.calc_mean_grad(m, c)
-        r_grad = self.calc_r_grad(sigma_grad)
-        w_grad, w_grad_logdet = self.calc_w_inv_grad(w_inv, sigma_grad)
+        r_grad = self.calc_l_grad(sigma_grad)
+        w_grad, w_grad_logdet = self.calc_t_inv_grad(w_inv, sigma_grad)
         n, m = self.num_n, self.num_m
         for i, (d_m, d_r, d_w, d_l) in enumerate(zip(mean_grad, r_grad,
                                                      w_grad, w_grad_logdet)):
@@ -807,14 +829,14 @@ class ModelEffects(ModelMeans):
 
         """
         sigma, aux = self.calc_sigma()
-        w_inv = self.calc_w_inv(sigma)[0]
-        r = self.calc_r_reml2(sigma)
+        w_inv = self.calc_t_inv(sigma)[0]
+        r = self.calc_l_reml2(sigma)
         r_inv = chol_inv(r)
         m, c = aux
         sigma_grad = self.calc_sigma_grad(m, c)
         mean_grad = self.calc_mean_grad(m, c)
-        w_grad = self.calc_w_grad(sigma_grad)
-        r_grad = self.calc_r_grad(sigma_grad)
+        w_grad = self.calc_t_grad(sigma_grad)
+        r_grad = self.calc_l_grad(sigma_grad)
         sigma = np.kron(w_inv, r_inv)
         n = self.mx_data_transformed.shape[1]
         m = self.num_m
@@ -835,11 +857,11 @@ class ModelEffects(ModelMeans):
                 sgs.append((g_wr, g_mean, pm))
                 inds_base.append(i)
 
-        w_inv = np.diag(self.calc_w_inv_reml()[0].flatten())
-        r_inv, _, tr_r = self.calc_r_inv_reml()
+        w_inv = np.diag(self.calc_t_inv_reml()[0].flatten())
+        r_inv, _, tr_r = self.calc_l_inv_reml()
         m, c = aux
-        w_grad = self.calc_w_reml_grad()
-        r_grad = self.calc_r_reml_grad()
+        w_grad = self.calc_t_reml_grad()
+        r_grad = self.calc_l_reml_grad()
         sigma = np.kron(w_inv, r_inv)
         n = self.reml_mx_data_transformed.shape[1]
         m = self.num_m
@@ -915,34 +937,55 @@ class ModelEffects(ModelMeans):
         sigma, (m, c) = self.calc_sigma()
         sigma_grad = self.calc_sigma_grad(m, c)
         mean_grad = self.calc_mean_grad(m, c)
-        w_inv = self.calc_w_inv(sigma)[0]
-        r = self.calc_r(sigma)
-        r_inv = chol_inv(r)
-        w_grad = self.calc_w_grad(sigma_grad)
-        r_grad = self.calc_r_grad(sigma_grad)
-        sigma = np.kron(np.diag(w_inv), r_inv)
-        sz = len(sigma_grad)
-        n, m = self.num_n, self.num_m
-        tr_r = np.trace(r)
-        i_im = np.identity(n * m) / tr_r
-        wr = [kron_identity(np.diag(w_inv * dw), m) \
-              + kron_identity(r_inv @ dr, n, True)
-              if len(dw.shape) else None for dw, dr in zip(w_grad, r_grad)]
-        wr = [wr - i_im * np.trace(dr) if wr is not None else None
-              for wr, dr in zip(wr, r_grad)]
-        mean_grad = [g.reshape((-1, 1), order="F") if len(g.shape) else None
-                     for g in mean_grad]
-        prod_means = [g.T @ sigma * tr_r if g is not None else None
-                      for g in mean_grad]
-        info = np.zeros((sz, sz))
-        for i in range(sz):
-            for k in range(i, sz):
-                if wr[i] is not None and wr[k] is not None:
-                    info[i, k] = np.einsum('ij,ji->', wr[i], wr[k]) / 2
-                if prod_means[i] is not None and mean_grad[k] is not None:
-                    info[i, k] += prod_means[i] @ mean_grad[k]
-        fim = info + np.triu(info, 1).T
-        fim = fim
+        t_inv = self.calc_t_inv(sigma)[0]
+        l = self.calc_l(sigma)
+        try:
+            l_inv = chol_inv(l)
+        except np.linalg.LinAlgError:
+            l_inv = np.linalg.pinv(l)
+        l_grad = self.calc_l_grad(sigma_grad)
+        t_grad = self.calc_t_grad(sigma_grad)
+        tr_l = np.trace(l)
+        a = [t_inv * g if not np.isscalar(g) else None for g in t_grad]
+        b = [l_inv @ g if not np.isscalar(g) else None for g in l_grad]
+        tr_a = [np.sum(g) if g is not None else g for g in a]
+        tr_b = [np.trace(g) if g is not None else g for g in b]
+        m_t = [g * t_inv if not np.isscalar(g) else None for g in mean_grad]
+        m_l = [g.T @ l_inv if not np.isscalar(g) else None for g in mean_grad]
+        al = [np.trace(g) / tr_l if not np.isscalar(g) else None
+              for g in l_grad]
+        param_len = len(self.param_vals)
+        fim = np.zeros((param_len, param_len))
+        n = self.n_samples
+        m = self.num_m
+        n, m = m, n
+        for i in range(param_len):
+            for j in range(i, param_len):
+                mean = 0
+                cov = 0
+                mtj = m_t[j]
+                mli = m_l[i]
+                ai = a[i]
+                aj = a[j]
+                bi = b[i]
+                bj = b[j]
+                trai = tr_a[i]
+                traj = tr_a[j]
+                trbi = tr_b[i]
+                trbj = tr_b[j]
+                alphai = al[i]
+                alphaj = al[j]
+                if mli is not None and mtj is not None:
+                    mean += tr_l * np.einsum('ij,ji', mli, mtj)
+                if ai is not None and aj is not None:
+                    cov += n * (ai * aj).sum()
+                    cov += m * np.einsum('ij,ji', bi, bj)
+                    cov += trai * trbj + trbi * traj
+                    cov += n * m * alphai * alphaj
+                    cov -= n * alphaj * trai + m * alphaj * trbi
+                    cov -= n * alphai * traj + m * alphai * trbj
+                fim[i, j] = mean + cov / 2
+                fim[j, i] = fim[i, j]
         if inverse:
             fim_inv = np.linalg.pinv(fim)
             return (fim, fim_inv)
@@ -970,8 +1013,8 @@ class ModelEffects(ModelMeans):
         """
         sigma, (m, c) = self.calc_sigma()
         mean_grad = self.calc_mean_grad(m, c)
-        w_inv = self.calc_w_inv(sigma)[0]
-        r = self.calc_r(sigma)
+        w_inv = self.calc_t_inv(sigma)[0]
+        r = self.calc_l(sigma)
         r_inv = chol_inv(r)
         sigma = np.kron(np.diag(w_inv), r_inv)
         sz = len(self.param_vals)
@@ -997,20 +1040,14 @@ class ModelEffects(ModelMeans):
     -------------------------Prediction method--------------------------------
     '''
 
-    def predict_factors(self, x: pd.DataFrame, method='map'):
+    def predict_factors(self, x: pd.DataFrame):
         """
-        Fast factor estimation method. Requires complete data.
+        Fast factor estimation method via MAP. Requires complete data.
 
         Parameters
         ----------
         x : pd.DataFrame
             Complete data of observed variables.
-        method : str
-            Name of the method to be used. Either 'linear' or 'map'. Linear is
-            just a linear projection, error terms covariances are not taken in
-            account.  "map" is a Maximum a Posteriori estimator that also
-            takes covariance structure into account. MAP estimator might fail
-            if Theta or Psi not PD. The default is 'map'.
 
         Returns
         -------
@@ -1021,26 +1058,54 @@ class ModelEffects(ModelMeans):
         num_lat = len(lats)
         if num_lat == 0:
             return pd.DataFrame([])
-        y = x[self.vars['observed']].values.T
         inners = self.vars['inner']
-        x = x[filter(lambda v: v not in lats, inners)].values.T
+        obs = self.vars['observed']
+        obs_exo = self.vars['observed_exogenous']
+        g = []
+        for v in obs_exo:
+            if v == '1':
+                g.append([1] * len(x))
+            else:
+                g.append(x[v])
+        g = np.array(g)
+        x = x[obs].values.T
         m = len(self.vars['_output'])
-        lam1, lam2 = self.mx_lambda[:m, :num_lat], self.mx_lambda[:, num_lat:]
-        y -= lam2 @ x + self.mx_gamma2 @ self.mx_g
-        y = y[:m]
-        if method == 'linear':
-            res = np.linalg.pinv(lam1) @ y
-        elif method == 'map':
-            center = self.mx_gamma1[:m, :] @ self.mx_g
-            theta = self.mx_theta + np.trace(self.mx_zkz) * self.mx_d
-            theta = theta[:m, :m]
-            t = chol(theta).T
-            y = t @ y
-            lam1 = t @ lam1
-            m = self.mx_beta.shape[0]
-            c = np.linalg.pinv(np.identity(m) - self.mx_beta)
-            c = c[:num_lat, :]
-            psi = chol(c @ self.mx_psi @ c.T)
-            t = lam1.T @ lam1 + psi @ psi.T
-            res = np.linalg.pinv(t) @ (lam1.T @ y + psi.T @ center)
-        return pd.DataFrame(res.T, columns=filter(lambda v: v in lats, inners))
+        lambda_h = self.mx_lambda[:m, :num_lat]
+        lambda_x = self.mx_lambda[:, num_lat:]
+        c = np.linalg.inv(np.identity(self.mx_beta.shape[0]) - self.mx_beta)
+        c_1 = c[:num_lat, :]
+        c_2 = c[num_lat:, :]
+        g1 = self.mx_gamma1; g2 = self.mx_gamma2;
+        M_h = x - (g2 + lambda_x @ c_2 @ g1) @ g
+        t = lambda_x @ c_2
+        L_zh = (t @ self.mx_psi @ t.T + self.mx_theta) * (x.shape[1])
+        tr_sigma = np.trace(L_zh) / x.shape[1]
+        L_zh += self.mx_d * np.trace(self.mx_zkz)
+        tr_lzh = np.trace(L_zh)
+        try:
+            L_zh = chol_inv(L_zh)
+        except np.linalg.LinAlgError:
+            L_zh = np.linalg.pinv(L_zh)
+        T_zh = np.identity(x.shape[1]) * tr_sigma
+        T_zh += self.mx_zkz * np.trace(self.mx_d)
+        try:
+            T_zh = chol_inv(T_zh)
+        except np.linalg.LinAlgError:
+            T_zh = np.linalg.pinv(T_zh)
+        t = lambda_h.T @ L_zh
+        A = tr_lzh * t @ M_h @ T_zh
+        A_0 = tr_lzh * t @ lambda_h
+        try:
+            L_h = chol_inv(c_1 @ self.mx_psi @ c_1.T)
+        except np.linalg.LinAlgError:
+            L_h = np.linalg.pinv(c_1 @ self.mx_psi @ c_1.T)
+        M = c_1 @ g1 @ g
+        A_1 = L_h @ M
+        try:
+            inv_A0 = chol_inv(A_0)
+        except np.linalg.LinAlgError:
+            inv_A0 = np.linalg.pinv(A_0)
+        A_2 = inv_A0 @ L_h
+        A_hat = inv_A0 @ (A + A_1)
+        H = solve_sylvester(A_2, T_zh, A_hat)
+        return pd.DataFrame(H.T, columns=filter(lambda v: v in lats, inners))

@@ -207,7 +207,6 @@ def start_d(model, lval: str, rval: str):
 
     """
     return 1.0
-    # return start_theta(model, lval, rval)
 
 def start_v(model, lval: str, rval: str):
     """

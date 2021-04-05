@@ -4,7 +4,6 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from .parser import parse_desc
-import logging
 
 
 class ModelBase(ABC):

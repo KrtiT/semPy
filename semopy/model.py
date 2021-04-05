@@ -276,7 +276,10 @@ class Model(ModelBase):
             setattr(self, f'names_{v}', names)
             self.matrices.append(mx)
             self.names.append(names)
-            self.start_rules.append(getattr(startingvalues, f'start_{v}'))
+            try:
+                self.start_rules.append(getattr(startingvalues, f'start_{v}'))
+            except AttributeError:
+                self.start_rules.append(getattr(self, f'start_{v}'))
 
     def build_beta(self):
         """
@@ -1012,15 +1015,53 @@ class Model(ModelBase):
             d[cols] = (t.T @ t, inds, len(rows))
         self.fiml_data = d
 
-    def predict(self, x: pd.DataFrame, solver='SLSQP', factors=True,
-                ret_opt=False, chunk_size=20):
+    def predict(self, x: pd.DataFrame):
         """
-        Impute/predict data given certain observations.
+        Predict data given certain observations.
+        
+        Uses conditional expectation of the normal distribution method.
+
+        Parameters
+        ----------
+        x : pd.DataFrame
+            DataFrame with missing variables either not present at all, or
+            with missing entries set to NaN.
+
+        Returns
+        -------
+        None.
+
+        """
+        sigma = self.calc_sigma()[0]
+        obs = self.vars['observed']
+        result = x.copy()
+        for v in obs:
+            if v not in result:
+                result[v] = np.nan
+        result = result[obs]
+        for _, row in result.iterrows():
+            present = [True if np.isfinite(row[r]) else False
+                       for r in obs]
+            present = np.array(present)
+            missing = ~present
+            sigma12 = sigma[missing][:, present]
+            sigma22 = np.linalg.pinv(sigma[present][:, present])
+            row.iloc[missing] = sigma12 @ sigma22 @ row.iloc[present]
+        return result
+            
+            
+            
+
+    def predict_general(self, x: pd.DataFrame, solver='SLSQP', factors=True,
+                        ret_opt=False, chunk_size=20):
+        """
+        Impute/predict data given certain observations. Very general method,
+        and quiet slow and prone to errors, too.
 
         With Model, it might  be better to center x beforehand for factors
         to have zero mean.
         Warning: if you seek to compute only factor scores, predict_factors
-        is much more preferable as it is way more faster and stable.
+        is much more preferable as it is way more faster and stable. 
         Parameters
         ----------
         x : pd.DataFrame
@@ -1063,20 +1104,14 @@ class Model(ModelBase):
         data = imp.get_fancy()
         return data if not ret_opt else (data, res)
 
-    def predict_factors(self, x: pd.DataFrame, method='map'):
+    def predict_factors(self, x: pd.DataFrame):
         """
-        Fast factor estimation method. Requires complete data.
+        Fast factor estimation method via MAP. Requires complete data.
 
         Parameters
         ----------
         x : pd.DataFrame
             Complete data of observed variables.
-        method : str
-            Name of the method to be used. Either 'linear' or 'map'. Linear is
-            just a linear projection, error terms covariances are not taken in
-            account.  "map" is a Maximum a Posteriori estimator that also
-            takes covariance structure into account. MAP estimator might fail
-            if Theta or Psi not PD. The default is 'map'.
 
         Returns
         -------
@@ -1087,27 +1122,27 @@ class Model(ModelBase):
         num_lat = len(lats)
         if num_lat == 0:
             return pd.DataFrame([])
-        y = x[self.vars['observed']].values.T
         inners = self.vars['inner']
-        x = x[filter(lambda v: v not in lats, inners)].values.T
+        obs = self.vars['observed']
+        x = x[obs].values.T
         m = len(self.vars['_output'])
-        lam1, lam2 = self.mx_lambda[:m, :num_lat], self.mx_lambda[:, num_lat:]
-        y -= lam2 @ x
-        y = y[:m]
-        if method == 'linear':
-            res = np.linalg.pinv(lam1) @ y
-        elif method == 'map':
-            theta = self.mx_theta[:m, :m]
-            t = chol(theta).T
-            y = t @ y
-            lam1 = t @ lam1
-            m = self.mx_beta.shape[0]
-            c = np.linalg.inv(np.identity(m) - self.mx_beta)
-            c = c[:num_lat, :]
-            psi = c @ self.mx_psi @ c.T
-            t = lam1.T @ lam1 + chol_inv(psi)
-            res = chol_inv(t) @ lam1.T @ y
-        return pd.DataFrame(res.T, columns=filter(lambda v: v in lats, inners))
+        lambda_h = self.mx_lambda[:m, :num_lat]
+        lambda_x = self.mx_lambda[:, num_lat:]
+        c = np.linalg.inv(np.identity(self.mx_beta.shape[0]) - self.mx_beta)
+        c_1 = c[:num_lat, :]
+        c_2 = c[num_lat:, :]
+        M_h = x
+        t = lambda_x @ c_2
+        L_zh = (t @ self.mx_psi @ t.T + self.mx_theta) * (x.shape[1])
+        tr_lzh = np.trace(L_zh)
+        tr_sigma = tr_lzh / x.shape[1]
+        L_zh = np.linalg.inv(L_zh)
+        t = lambda_h.T @ L_zh
+        A = (tr_lzh / tr_sigma) * t @ M_h
+        A_0 = tr_lzh * t @ lambda_h
+        L_h = np.linalg.inv(c_1 @ self.mx_psi @ c_1.T)
+        H = np.linalg.inv(A_0 / tr_sigma + L_h) @ A
+        return pd.DataFrame(H.T, columns=filter(lambda v: v in lats, inners))
 
     '''
     ----------------------------LINEAR ALGEBRA PART---------------------------

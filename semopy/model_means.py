@@ -695,6 +695,61 @@ class ModelMeans(Model):
     -------------------------Prediction method--------------------------------
     '''
 
+    def predict(self, x: pd.DataFrame):
+        """
+        Predict data given certain observations.
+        
+        Uses conditional expectation of the normal distribution method.
+
+        Parameters
+        ----------
+        x : pd.DataFrame
+            DataFrame with missing variables either not present at all, or
+            with missing entries set to NaN.
+
+        Returns
+        -------
+        None.
+
+        """
+        sigma, (m, _) = self.calc_sigma()
+        obs = self.vars['observed']
+        exo = self.vars['observed_exogenous']
+        result = x.copy()
+        for v in obs:
+            if v not in result:
+                result[v] = np.nan
+        for v in exo:
+            if v not in result:
+                if v == '1':
+                    result[v] = 1
+                else:
+                    result[v] = 0
+        result = result[obs + exo]
+        old_gamma = self.mx_g.copy()
+        for i, (_, row) in enumerate(result.iterrows()):
+            row_exo = row.loc[exo]
+            row_endo = row.loc[obs]
+            present = [True if np.isfinite(row[r]) else False
+                       for r in obs]
+            present = np.array(present)
+            missing = ~present
+            sigma12 = sigma[missing][:, present]
+            sigma22 = np.linalg.pinv(sigma[present][:, present])
+            self.mx_g = row_exo.values.reshape((-1, 1))
+            mean = self.calc_mean(m)
+            mean_m = mean[missing, :]
+            mean_p = mean[present, :]
+            p = mean_m
+            if mean_p:
+                p += sigma12 @ sigma22 @ (row_endo.iloc[present] - mean_p)
+            row.iloc[np.where(missing)] = p.flatten()
+            result.iloc[i] = row
+        self.mx_g = old_gamma
+        if '1' in result:
+            result = result.drop('1', axis=1)
+        return result
+
     def predict_exo(self, exogenous: pd.DataFrame):
         """
         Predict output variables given a set of exogenous variables.
@@ -728,20 +783,14 @@ class ModelMeans(Model):
         return pd.DataFrame(t.T, columns=self.vars['observed'],
                             index=exogenous.index)
 
-    def predict_factors(self, x: pd.DataFrame, method='map'):
+    def predict_factors(self, x: pd.DataFrame):
         """
-        Fast factor estimation method. Requires complete data.
+        Fast factor estimation method via MAP. Requires complete data.
 
         Parameters
         ----------
         x : pd.DataFrame
             Complete data of observed variables.
-        method : str
-            Name of the method to be used. Either 'linear' or 'map'. Linear is
-            just a linear projection, error terms covariances are not taken in
-            account.  "map" is a Maximum a Posteriori estimator that also
-            takes covariance structure into account. MAP estimator might fail
-            if Theta or Psi not PD. The default is 'map'.
 
         Returns
         -------
@@ -752,28 +801,30 @@ class ModelMeans(Model):
         num_lat = len(lats)
         if num_lat == 0:
             return pd.DataFrame([])
-        y = x[self.vars['observed']].values.T
         inners = self.vars['inner']
-        x = x[filter(lambda v: v not in lats, inners)].values.T
+        obs = self.vars['observed']
+        x = x[obs].values.T
         m = len(self.vars['_output'])
-        lam1, lam2 = self.mx_lambda[:m, :num_lat], self.mx_lambda[:, num_lat:]
-        y -= lam2 @ x + self.mx_gamma2 @ self.mx_g
-        y = y[:m]
-        if method == 'linear':
-            res = np.linalg.pinv(lam1) @ y
-        elif method == 'map':
-            center = self.mx_gamma1[:m, :] @ self.mx_g
-            theta = self.mx_theta[:m, :m]
-            t = chol(theta).T
-            y = t @ y
-            lam1 = t @ lam1
-            m = self.mx_beta.shape[0]
-            c = np.linalg.pinv(np.identity(m) - self.mx_beta)
-            c = c[:num_lat, :]
-            psi = chol(c @ self.mx_psi @ c.T)
-            t = lam1.T @ lam1 + psi @ psi.T
-            res = np.linalg.pinv(t) @ (lam1.T @ y + psi.T @ center)
-        return pd.DataFrame(res.T, columns=filter(lambda v: v in lats, inners))
+        lambda_h = self.mx_lambda[:m, :num_lat]
+        lambda_x = self.mx_lambda[:, num_lat:]
+        c = np.linalg.inv(np.identity(self.mx_beta.shape[0]) - self.mx_beta)
+        c_1 = c[:num_lat, :]
+        c_2 = c[num_lat:, :]
+        g1 = self.mx_gamma1; g2 = self.mx_gamma2; g = self.mx_g
+        M_h = x - (g2 + lambda_x @ c_2 @ g1) @ g
+        t = lambda_x @ c_2
+        L_zh = (t @ self.mx_psi @ t.T + self.mx_theta) * (x.shape[1])
+        tr_lzh = np.trace(L_zh)
+        tr_sigma = tr_lzh / x.shape[1]
+        L_zh = np.linalg.inv(L_zh)
+        t = lambda_h.T @ L_zh
+        A = (tr_lzh / tr_sigma) * t @ M_h
+        A_0 = tr_lzh * t @ lambda_h
+        L_h = np.linalg.inv(c_1 @ self.mx_psi @ c_1.T)
+        M = c_1 @ g1 @ g
+        A_1 = L_h @ M
+        H = np.linalg.inv(A_0 / tr_sigma + L_h) @ (A_1 + A)
+        return pd.DataFrame(H.T, columns=filter(lambda v: v in lats, inners))
 
     '''
     -------------------------Fisher Information Matrix------------------------
