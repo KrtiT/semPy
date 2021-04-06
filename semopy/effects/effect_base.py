@@ -40,7 +40,7 @@ class EffectBase(ABC):
         self.parameters = None
 
     @abstractmethod
-    def load(self, order, model, data, **kwargs):
+    def load(self, order, model, data, clean_start=True, **kwargs):
         """
         Called by model new dataset is loaded.
         
@@ -55,6 +55,10 @@ class EffectBase(ABC):
             Instance of ModelGeneralizedEffects that calls this method.
         data : pd.DataFrame
             Dataset that is being loaded. Should contain self.columns.
+        clean_start : bool, optional
+            If True, then parameters are (re)initialized. The model will use
+            the ones already present in self.parameters vector otherwise. The
+            default is True.
 
         Returns
         -------

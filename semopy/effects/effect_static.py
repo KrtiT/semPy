@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Effect with a pre-defied K matrix as in ModelEffects."""
+from ..utils import calc_zkz
 from .effect_base import EffectBase
 import pandas as pd
 import numpy as np
@@ -39,7 +40,7 @@ class EffectStatic(EffectBase):
         super().__init__(columns, d_mode=d_mode)
         self.k = k
 
-    def load(self, i, model, data, **kwargs):
+    def load(self, i, model, data, clean_start=True, **kwargs):
         """
         Called by model new dataset is loaded.
         
@@ -54,17 +55,22 @@ class EffectStatic(EffectBase):
             Instance of ModelGeneralizedEffects that calls this method.
         data : pd.DataFrame
             Dataset that is being loaded. Should contain self.columns.
+        clean_start : bool, optional
+            If True, then parameters are (re)initialized. The model will use
+            the ones already present in self.parameters vector otherwise. The
+            default is True.
 
         Returns
         -------
         None.
 
         """
-        super().load(i, model, data, **kwargs)
-        self.parameters = np.array([])
+        super().load(i, model, data, clean_start, **kwargs)
+        if clean_start:
+            self.parameters = np.array([])
         mx_k = kwargs.get(f'k_{self.order+1}', self.k)
         c = data[self.columns[0]]
-        self.mx_k = mx_k.loc[c, c].values.copy()
+        self.mx_k = calc_zkz(c, mx_k)
 
     def calc_k(self, model):
         return self.mx_k

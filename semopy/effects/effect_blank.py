@@ -14,10 +14,11 @@ class EffectBlank(EffectBase):
     def __init__(self, d_mode='identity'):
         super().__init__(None, d_mode=d_mode)
 
-    def load(self, order, model, data, **kwargs):
-        super().load(order, model, data, **kwargs)
+    def load(self, order, model, data, clean_start=True, **kwargs):
+        super().load(order, model, data, clean_start, **kwargs)
         self.mx_identity = np.identity(data.shape[0])
-        self.parameters = np.array([])
+        if clean_start:
+            self.parameters = np.array([])
 
     def calc_k(self, model):
         return self.mx_identity

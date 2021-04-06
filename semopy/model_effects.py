@@ -249,16 +249,7 @@ class ModelEffects(ModelMeans):
             res = self._fit(obj='ML', solver=solver, **kwargs)
             return res
         else:
-            raise NotImplementedError(f'Unknown objective {obj}.')
-
-    def predict(self, data: pd.DataFrame, group: str, k: pd.DataFrame,
-                ret_opt=False):
-        raise NotImplementedError('ModelEffects can''t predict right now.')
-        from .imputer import ImputerEffects
-        imp = ImputerEffects(self, data, group, k)
-        res = imp.fit(solver='SLSQP')
-        data = imp.get_fancy()
-        return data if not ret_opt else (data, res)        
+            raise NotImplementedError(f'Unknown objective {obj}.')      
 
     def effect_rf_covariance(self, items: dict):
         """
@@ -1039,6 +1030,68 @@ class ModelEffects(ModelMeans):
     '''
     -------------------------Prediction method--------------------------------
     '''
+    
+    def predict(self, x: pd.DataFrame, k=None, group=None):
+        """
+        Predict data given certain observations.
+        
+        Uses conditional expectation of the normal distribution method.
+
+        Parameters
+        ----------
+        x : pd.DataFrame
+            DataFrame with missing variables either not present at all, or
+            with missing entries set to NaN.
+        k : pd.DataFrame, optional
+            K relatedness matrix for elements in x. If x is None, then
+            observations are assumed to be independent. The default is None.
+        group : str, optional
+            Columns name where group ID is stored. The default is None.
+
+        Returns
+        -------
+        None.
+
+        """
+        sigma, (m, _) = self.calc_sigma()
+        obs = self.vars['observed']
+        exo = self.vars['observed_exogenous']
+        result = x.copy()
+        for v in obs:
+            if v not in result:
+                result[v] = np.nan
+        for v in exo:
+            if v not in result:
+                if v == '1':
+                    result[v] = 1
+                else:
+                    result[v] = 0
+        result = result[obs + exo]
+        old_g = self.mx_g.copy()
+        self.mx_g = result[exo].values.T
+        mean = self.calc_mean(m).reshape((-1, 1), order='F')
+        self.mx_g = old_g
+        k = calc_zkz(x[group], k)
+        l = sigma * len(x) + self.mx_d * np.trace(k)
+        t = np.trace(sigma) * np.identity(len(x)) + k * np.trace(self.mx_d)
+        l /= np.trace(l)
+        cov = np.kron(t, l)
+        data = result[obs].values.T
+        data_shape = data.shape
+        data = data.reshape((-1, 1), order='F')
+        missing = np.isnan(data).flatten()
+        present = ~missing
+        cov12 = cov[missing][:, present]
+        cov22 = np.linalg.pinv(cov[present][:, present])
+        mean_m = mean[missing]
+        mean_p = mean[present]
+        preds = mean_m
+        if len(present):
+            preds += cov12 @ cov22 @ (data[present] - mean_p)
+        data[missing] = preds
+        data = data.reshape(data_shape, order='F').T
+        result = pd.DataFrame(data, columns=obs)
+        return result
 
     def predict_factors(self, x: pd.DataFrame):
         """

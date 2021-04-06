@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 """Generalized Random Effects SEM."""
+from .utils import chol_inv, chol_inv2, cov
+from scipy.linalg import solve_sylvester
 from .model_means import ModelMeans
-from .effects import EffectBase
 from itertools import combinations
-from .utils import chol_inv, chol_inv2, cov, kron_identity, calc_zkz, chol
-from scipy.linalg import block_diag, solve_sylvester
 from functools import partial
 from . import startingvalues
+from copy import deepcopy
 import pandas as pd
 import numpy as np
 
@@ -611,6 +611,76 @@ class ModelGeneralizedEffects(ModelMeans):
     '''
     -------------------------Prediction method--------------------------------
     '''
+    
+    def predict(self, x: pd.DataFrame, effects=None):
+        """
+        Predict data given certain observations.
+        
+        Uses conditional expectation of the normal distribution method.
+
+        Parameters
+        ----------
+        x : pd.DataFrame
+            DataFrame with missing variables either not present at all, or
+            with missing entries set to NaN.
+        k : List[EfffectBase], optional
+            List of effects to be used for prediction. If None, effects that
+            were used during optimization. The default is None.
+
+        Returns
+        -------
+        None.
+
+        """
+        sigma, (m, _) = self.calc_sigma()
+        obs = self.vars['observed']
+        exo = self.vars['observed_exogenous']
+        result = x.copy()
+        for v in obs:
+            if v not in result:
+                result[v] = np.nan
+        for v in exo:
+            if v not in result:
+                if v == '1':
+                    result[v] = 1
+                else:
+                    result[v] = 0
+        result = result[obs + exo]
+        old_g = self.mx_g.copy()
+        self.mx_g = result[exo].values.T
+        mean = self.calc_mean(m).reshape((-1, 1), order='F')
+        self.mx_g = old_g
+        if effects is None:
+            effects = deepcopy(self.effects)
+        for i, effect in enumerate(effects):
+            effect.load(i, self, x, clean_start=False)
+        k = [effect.calc_k(self) for effect in effects]
+        old_n = self.n_samples
+        old_i = self.mx_identity
+        self.n_samples = len(x)
+        self.mx_identity = np.identity(self.n_samples)
+        l = self.calc_l(sigma, k)
+        t = self.calc_t(sigma, k)
+        l = l / np.trace(l)
+        self.n_samples = old_n
+        self.mx_identity = old_i
+        cov = np.kron(t, l)
+        data = result[obs].values.T
+        data_shape = data.shape
+        data = data.reshape((-1, 1), order='F')
+        missing = np.isnan(data).flatten()
+        present = ~missing
+        cov12 = cov[missing][:, present]
+        cov22 = np.linalg.inv(cov[present][:, present])
+        mean_m = mean[missing]
+        mean_p = mean[present]
+        preds = mean_m
+        if len(present):
+            preds = mean_m + cov12 @ cov22 @ (data[present] - mean_p)
+        data[missing] = preds
+        result = data.reshape(data_shape, order='F').T
+        result = pd.DataFrame(result, columns=obs)
+        return result
 
     def predict_factors(self, x: pd.DataFrame):
         """

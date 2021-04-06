@@ -284,7 +284,10 @@ class ModelMeans(Model):
         if len(self.mx_g.shape) != 2:
             self.mx_g = self.mx_g[np.newaxis, :]
         g = self.mx_g
-        s = np.identity(g.shape[1]) - g.T @ chol_inv(g @ g.T) @ g
+        try:
+            s = np.identity(g.shape[1]) - g.T @ chol_inv(g @ g.T) @ g
+        except ValueError:
+            s = np.identity(g.shape[1]) - g.T @ g
         d, q = np.linalg.eigh(s)
         rank_dec = 0
         for i in d:
@@ -741,8 +744,9 @@ class ModelMeans(Model):
             mean_m = mean[missing, :]
             mean_p = mean[present, :]
             p = mean_m
-            if mean_p:
-                p += sigma12 @ sigma22 @ (row_endo.iloc[present] - mean_p)
+            if len(present):
+                r = row_endo.iloc[present].values.reshape((-1, 1))
+                p += sigma12 @ sigma22 @ (r - mean_p)
             row.iloc[np.where(missing)] = p.flatten()
             result.iloc[i] = row
         self.mx_g = old_gamma
