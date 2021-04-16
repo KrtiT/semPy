@@ -51,7 +51,7 @@ class ModelEffects(ModelMeans):
         d_mode : str
             Mode of D matrix. If "diag", then D has unique params on the
             diagonal. If "full", then D is fully parametrised. If
-            "identity", then D is an identity matrix, multiplied by a single
+            "scale", then D is an identity matrix, multiplied by a single
             variance parameter (scalar). The default is "diag".
 
         Returns
@@ -98,7 +98,7 @@ class ModelEffects(ModelMeans):
                     if (v not in t) and (v not in tt):
                         t[b] = None
         else:
-            if mode != 'identity':
+            if mode != 'scale':
                 raise Exception(f'Unknown mode "{mode}".')
             param = 'paramD'
             for v in obs:
@@ -189,7 +189,7 @@ class ModelEffects(ModelMeans):
         self.last_result = res
         return res
 
-    def fit(self, data=None, group=None, k=None, cov=None, obj='ML',
+    def fit(self, data=None, group=None, k=None, cov=None, obj='REML',
             solver='SLSQP', clean_slate=False, regularization=None, **kwargs):
         """
         Fit model to data.

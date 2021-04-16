@@ -80,11 +80,12 @@ def generate_parameters(desc: str, intercepts=False,
             d['op'].append('~~')
             d['rval'].append(psi_rows[i])
             d['Estimate'].append(psi[i, i])
-    for i in range(1, psi.shape[0]):
-        for j in range(i):
-            if type(psi[i, j]) is str:
+    for i in range(psi.shape[0]):
+        for j in range(psi.shape[1]):
+            if i != j and type(psi[i, j]) is str:
                 t = (psi[i, i] * psi[j, j]) ** (0.5)
                 psi[i, j] = sampler_cor_psi() * t
+                psi[j, i] = psi[i, j]
                 d['lval'].append(psi_rows[i])
                 d['op'].append('~~')
                 d['rval'].append(psi_rows[j])
@@ -100,11 +101,12 @@ def generate_parameters(desc: str, intercepts=False,
             d['op'].append('~~')
             d['rval'].append(theta_rows[i])
             d['Estimate'].append(theta[i, i])
-    for i in range(1, theta.shape[0]):
-        for j in range(i):
-            if type(theta[i, j]) is str:
+    for i in range(theta.shape[0]):
+        for j in range(theta.shape[1]):
+            if i != j and type(theta[i, j]) is str:
                 t = (theta[i, i] * theta[j, j]) ** (0.5)
-                psi[i, j] = sampler_cor_theta() * t
+                theta[i, j] = sampler_cor_theta() * t
+                theta[j, i] = theta[i, j]
                 d['lval'].append(theta_rows[i])
                 d['op'].append('~~')
                 d['rval'].append(theta_rows[j])

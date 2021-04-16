@@ -85,6 +85,8 @@ class Model(ModelBase):
         self.objectives = {'MLW': (self.obj_mlw, self.grad_mlw),
                            'ULS': (self.obj_uls, self.grad_uls),
                            'GLS': (self.obj_gls, self.grad_gls),
+                           'WLS': (self.obj_wls, self.grad_wls),
+                          # 'DWLS': (self.obj_dwls, self.grad_dwls),
                            'FIML': (self.obj_fiml, self.grad_fiml)}
         super().__init__(description)
 
@@ -183,7 +185,7 @@ class Model(ModelBase):
         None.
 
         """
-        self.finalize_variable_classification()
+        self.finalize_variable_classification(effects)
         self.preprocess_effects(effects)
         self.setup_matrices()
 
@@ -220,12 +222,18 @@ class Model(ModelBase):
             if b not in cov[a] and a not in cov[b]:
                 cov[a][b] = None
 
-    def finalize_variable_classification(self):
+    def finalize_variable_classification(self, effects: dict):
         """
         Finalize variable classification.
 
         Reorders variables for better visual fancyness and does extra
         model-specific variable respecification.
+
+        Parameters
+        -------
+        effects : dict
+            Maping opcode->values->rvalues->mutiplicator.
+
         Returns
         -------
         None.
@@ -910,7 +918,7 @@ class Model(ModelBase):
             Pre-computed covariance/correlation matrix. The default is None.
         obj : str, optional
             Objective function to minimize. Possible values are 'MLW', 'FIML',
-            'ULS', 'GLS'. The default is 'MLW'.
+            'ULS', 'GLS', 'WLS', 'DWLS'. The default is 'MLW'.
         solver : str, optional
             Optimizaiton method. Currently scipy-only methods are available.
             The default is 'SLSQP'.
@@ -946,6 +954,10 @@ class Model(ModelBase):
             if not hasattr(self, 'mx_data'):
                 raise Exception('Full data must be supplied for FIML')
             self.prepare_fiml()
+        elif obj in ('WLS', 'DWLS'):
+            if (not hasattr(self, 'last_result')) or \
+                (self.last_result.name_obj != obj):
+                    self.prepare_wls(obj, data is None)
         fun, grad = self.get_objective(obj, regularization=regularization)
         solver = Solver(solver, fun, grad, self.param_vals,
                         constrs=self.constraints,
@@ -997,7 +1009,7 @@ class Model(ModelBase):
 
     def prepare_fiml(self):
         """
-        Prepare data structure for efficient FIML calculation.
+        Prepare data structure for efficient FIML estimation.
 
         Returns
         -------
@@ -1014,6 +1026,45 @@ class Model(ModelBase):
             t = self.mx_data[rows][:, cols]
             d[cols] = (t.T @ t, inds, len(rows))
         self.fiml_data = d
+
+    def prepare_wls(self, obj: str, custom_w=None):
+        """
+        Prepare data structures for efficient WLS/DWLS estimation.
+
+        Parameters
+        ----------
+        obj : str
+            Either 'WLS' or 'DWLS'.
+        custom_w : np.ndarray, optional
+            Optional custom weight matrix. The default is None.
+
+        Returns
+        -------
+        None.
+
+        """
+        
+        data = self.mx_data - self.mx_data.mean(axis=0)
+        products = list()
+        for i in range(data.shape[1]):
+            for j in range(i, data.shape[1]):
+                products.append(data[:, i] * data[:, j])
+        products = np.array(products)
+        w = np.cov(products, bias=True)
+        if obj == 'DWLS':
+            self.mx_w_inv = np.array([1 / d for d in w.diagonal()])
+        else:
+            try:
+                self.mx_w_inv = np.linalg.inv(w)
+            except np.linalg.LinAlgError:
+                logging.warning("Weight matrix could not be inverted. NearPD"
+                                " estimate will be used instead.")
+                w = cov_nearest(w, threshold=1e-2)
+                self.mx_w_inv = np.linalg.pinv(w)
+        self.mx_w = w
+        self.inds_triu_sigma = np.triu_indices_from(self.mx_cov)
+        self.mx_vech_s = self.mx_cov[self.inds_triu_sigma]
+
 
     def predict(self, x: pd.DataFrame):
         """
@@ -1048,8 +1099,6 @@ class Model(ModelBase):
             sigma22 = np.linalg.pinv(sigma[present][:, present])
             row.iloc[missing] = sigma12 @ sigma22 @ row.iloc[present]
         return result
-            
-            
             
 
     def predict_general(self, x: pd.DataFrame, solver='SLSQP', factors=True,
@@ -1449,6 +1498,34 @@ class Model(ModelBase):
             (sigma @ self.mx_cov_inv - self.mx_covlike_identity)
         return 2 * np.array([np.einsum('ij,ji->', g, t)
                              for g in sigma_grad])
+
+    '''
+    -------------------------Weighted Least Squares------------------------
+    '''
+
+    def obj_wls(self, x: np.ndarray):
+        self.update_matrices(x)
+        try:
+            diff = self.calc_sigma()[0][self.inds_triu_sigma] - self.mx_vech_s
+        except np.linalg.LinAlgError:
+            return np.nan
+        return diff.T @ self.mx_w_inv @ diff
+    
+    def grad_wls(self, x: np.ndarray):
+        self.update_matrices(x)
+        try:
+            sigma, (m, c) = self.calc_sigma()
+            sigma = sigma[self.inds_triu_sigma]
+        except np.linalg.LinAlgError:
+            t = np.zeros((len(x),))
+            t[:] = np.inf
+            return t
+        sigma_grad = [g[self.inds_triu_sigma].T
+                        for g in self.calc_sigma_grad(m, c)]
+        diff = sigma - self.mx_vech_s
+        t = self.mx_w_inv @ diff
+        return 2 * np.array([g @ t for g in sigma_grad])
+        
 
     '''
     -------------------------Fisher Information Matrix------------------------

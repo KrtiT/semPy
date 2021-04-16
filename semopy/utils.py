@@ -184,7 +184,8 @@ def chol_inv2(x: np.ndarray):
 
 
 def compare_results(model, true: pd.DataFrame, error='relative',
-                    ignore_cov=True, drop_equal=True, return_table=False):
+                    ignore_cov=False, drop_equal=True, mandatory=False,
+                    return_table=False):
     """
     Compare parameter estimates in model to parameter values in a DataFrame.
 
@@ -204,6 +205,12 @@ def compare_results(model, true: pd.DataFrame, error='relative',
         If True, then parameters that are exactly equal in model are dropped.
         Effectively, it clears result from fixed loadings in Lambda. The
         default is True.
+    mandatory : bool, optional
+        If True, then then all of entries in true DataFrame must have their
+        counterparts in model. It might be a problem if there is a known
+        variance estimate for an exogenous variable and you are testing
+        ModelMeans/ModelEffects that lack variance parameter. The default is
+        False.
     return_table : bool, optional
         If True, then pd.DataFrame table is returned instead of list.
 
@@ -235,7 +242,9 @@ def compare_results(model, true: pd.DataFrame, error='relative',
             lval, rval = rval, lval
         est = ins[(ins.lval == lval) & (ins.op == op) & (ins.rval == rval)]
         if len(est) == 0:
-            raise Exception(f'Unknown estimate: {row}.')
+            if mandatory:
+                raise Exception(f'Unknown estimate: {row}.')
+            continue
         est = est.Estimate.values[0]
         if drop_equal and est == value:
             continue

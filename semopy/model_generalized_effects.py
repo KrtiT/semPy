@@ -100,7 +100,7 @@ class ModelGeneralizedEffects(ModelMeans):
                         if (v not in t) and (v not in tt):
                             t[b] = None
             else:
-                if mode != 'identity':
+                if mode != 'scale':
                     raise Exception(f'Unknown mode "{mode}".')
                 param = f'paramD{i + 1}'
                 for v in obs:
@@ -753,6 +753,57 @@ class ModelGeneralizedEffects(ModelMeans):
         A_hat = inv_A0 @ (A + A_1)
         H = solve_sylvester(A_2, T_zh, A_hat)
         return pd.DataFrame(H.T, columns=filter(lambda v: v in lats, inners))
+
+    '''
+    -------------------------Best Linear Unbiased Predictor--------------------
+    '''
+    
+    def calc_blup(self, ind_effects=None):
+        """
+        Estimate random effects values (BLUP).
+
+        Parameters
+        ----------
+        ind_effects : List[int], optional
+            Indices of random effects that will be included to the estimate.
+            If None, then all the effects will be estimated and summed up.
+            The default is None.
+
+        Returns
+        -------
+        np.ndarray
+        Estimates of random effects.
+
+        """
+        if ind_effects is None:
+            ind_effects = list(range(len(self.effects)))
+        left_effects = list()
+        l_i = 0
+        t_i = 0
+        for i, effect in enumerate(self.effects):
+            k = effect.calc_k(self)
+            d = self.mxs_d[i]
+            if i in ind_effects:
+                left_effects.append(np.zeros_like(k))
+                t_i += k * np.trace(d)
+                l_i += d * np.trace(k)
+            else:
+                left_effects.append(k)
+        sigma, (m, _) = self.calc_sigma()
+        z = self.mx_data - self.calc_mean(m)
+        t = self.calc_t(sigma, left_effects)
+        l = self.calc_l(sigma, left_effects)
+        l = l / np.trace(l)
+        l_i = l_i / np.trace(l_i)
+        t_inv = np.linalg.inv(t)
+        t_i_inv = np.linalg.inv(t_i)
+        l_i_inv = np.linalg.inv(l_i)
+        a = l @ l_i_inv
+        b = t_inv @ t_i_inv
+        q = z @ t_inv @ t_i
+        return solve_sylvester(a, b, q)     
+        
+        
 
     '''
     -------------------------Fisher Information Matrix------------------------

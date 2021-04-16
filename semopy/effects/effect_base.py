@@ -23,7 +23,7 @@ class EffectBase(ABC):
         d_mode : str
             Mode of D matrix. If "diag", then D has unique params on the
             diagonal. If "full", then D is fully parametrised. If
-            "identity", then D is an identity matrix, multiplied by a single
+            "scale", then D is an identity matrix, multiplied by a single
             variance parameter (scalar). The default is "diag".
 
         Returns

@@ -96,12 +96,18 @@ class ModelMeans(Model):
         self.vars['observed_exogenous_1'] = gamma1
         self.vars['observed_exogenous_2'] = gamma2
 
-    def finalize_variable_classification(self):
+    def finalize_variable_classification(self, effects: dict):
         """
         Finalize variable classification.
 
         Reorders variables for better visual fancyness and does extra
         model-specific variable respecification.
+        
+        Parameters
+        -------
+        effects : dict
+            Maping opcode->values->rvalues->mutiplicator.
+
         Returns
         -------
         None.
@@ -113,10 +119,16 @@ class ModelMeans(Model):
             exo.add('1')
             obs.add('1')
         obs_exo = obs & exo
+        to_rem = set()
+        covs = effects[self.symb_covariance]
+        for lv, rvs in covs.items():
+            to_rem.add(lv)
+            to_rem.update(rvs)
+        obs_exo -= to_rem
         obs -= obs_exo
         exo -= obs_exo
         self.vars['observed_exogenous'] = obs_exo
-        super().finalize_variable_classification()
+        super().finalize_variable_classification(effects)
 
     def build_gamma1(self):
         """
@@ -193,8 +205,11 @@ class ModelMeans(Model):
         items_super = defaultdict(dict)
         exo_obs = self.vars['observed_exogenous']
         inner = self.vars['inner']
+        baseline = self.baseline
         for lv, rvs in items.items():
             for rv, mult in rvs.items():
+                if baseline and rv != '1':
+                    continue
                 if rv not in exo_obs:
                     items_super[lv][rv] = mult
                     continue
@@ -288,6 +303,7 @@ class ModelMeans(Model):
             s = np.identity(g.shape[1]) - g.T @ chol_inv(g @ g.T) @ g
         except ValueError:
             s = np.identity(g.shape[1]) - g.T @ g
+            print('blya')
         d, q = np.linalg.eigh(s)
         rank_dec = 0
         for i in d:
@@ -297,7 +313,6 @@ class ModelMeans(Model):
                 break
         d = np.diag(d)[rank_dec:, :]
         self.mx_s = d @ q.T
-        self.num_nt = self.mx_data.shape[0]
         self.mx_data_transformed = self.mx_s @ self.mx_data
         self.mx_data_square = self.mx_data_transformed.T @ self.mx_data_transformed
         self.load_cov(covariance.loc[obs, obs]
