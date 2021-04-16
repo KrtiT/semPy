@@ -235,7 +235,6 @@ class ModelEffects(ModelMeans):
         if obj == 'REML':
             if self.__loaded != 'REML':
                 self.load_reml()
-            self.calc_fim = self.calc_fim_reml
             res_reml = self._fit(obj='REML', solver=solver, **kwargs)
             self.load_ml(fake=True)
             sigma, (self.mx_m, _) = self.calc_sigma()
@@ -529,8 +528,6 @@ class ModelEffects(ModelMeans):
         self.mx_g = self.mx_g_orig @ q
         self.num_n = self.mx_data_transformed.shape[1]
         self.mx_i_n = np.ones(self.num_n)
-        if not fake:
-            self.calc_fim = self.calc_fim_ml
         self.__loaded = 'ML'
 
     def load_reml(self):
@@ -557,7 +554,6 @@ class ModelEffects(ModelMeans):
         self.mx_data_transformed = self.mx_data.T @ a.T @ q
         self.num_n = self.mx_data_transformed.shape[1]
         self.mx_i_n = np.ones(self.num_n)
-        self.calc_fim = self.calc_fim_reml
         self.__loaded = 'REML'
 
     '''
@@ -799,113 +795,6 @@ class ModelEffects(ModelMeans):
     -----------------------Fisher Information Matrix---------------------------
     '''
 
-    def calc_fim_reml(self, inverse=False):
-        """
-        Calculate Fisher Information Matrix when estimation was performed via
-        REML.
-
-        Exponential-family distributions are assumed.
-        Parameters
-        ----------
-        inverse : bool, optional
-            If True, function also returns inverse of FIM. The default is
-            False.
-
-        Returns
-        -------
-        np.ndarray
-            FIM.
-        np.ndarray, optional
-            FIM^{-1}.
-
-        """
-        sigma, aux = self.calc_sigma()
-        w_inv = self.calc_t_inv(sigma)[0]
-        r = self.calc_l_reml2(sigma)
-        r_inv = chol_inv(r)
-        m, c = aux
-        sigma_grad = self.calc_sigma_grad(m, c)
-        mean_grad = self.calc_mean_grad(m, c)
-        w_grad = self.calc_t_grad(sigma_grad)
-        r_grad = self.calc_l_grad(sigma_grad)
-        sigma = np.kron(w_inv, r_inv)
-        n = self.mx_data_transformed.shape[1]
-        m = self.num_m
-        tr_r = np.trace(r)
-        i_im = np.identity(n * m) / tr_r
-        wr = [kron_identity(w_inv @ dw, m) + kron_identity(r_inv @ dr, n, True)
-              if len(dw.shape) else None for dw, dr in zip(w_grad, r_grad)]
-        wr = [wr - i_im * np.trace(dr) if wr is not None else None
-              for wr, dr in zip(wr, r_grad)]
-        mean_grad = [g.reshape((-1, 1), order="F") if len(g.shape) else None
-                     for g in mean_grad]
-        prod_means = [g.T @ sigma * tr_r if g is not None else None
-                      for g in mean_grad]
-        inds_base = list()
-        sgs = list()
-        for i, (g_wr, g_mean, pm) in enumerate(zip(wr, mean_grad, prod_means)):
-            if g_wr is not None or g_mean is not None:
-                sgs.append((g_wr, g_mean, pm))
-                inds_base.append(i)
-
-        w_inv = np.diag(self.calc_t_inv_reml()[0].flatten())
-        r_inv, _, tr_r = self.calc_l_inv_reml()
-        m, c = aux
-        w_grad = self.calc_t_reml_grad()
-        r_grad = self.calc_l_reml_grad()
-        sigma = np.kron(w_inv, r_inv)
-        n = self.reml_mx_data_transformed.shape[1]
-        m = self.num_m
-        i_im = np.identity(n * m) / tr_r
-        wr = [kron_identity(w_inv @ dw, m) + kron_identity(r_inv @ dr, n, True)
-              if len(dw.shape) else None for dw, dr in zip(w_grad, r_grad)]
-        wr = [wr - i_im * np.trace(dr) if wr is not None else None
-              for wr, dr in zip(wr, r_grad)]
-        rfs = list()
-        inds_rf = list()
-        for i, g in enumerate(wr):
-            if g is not None:
-                rfs.append(g)
-                inds_rf.append(i)
-        sz = len(inds_base)
-        mx_base = np.zeros((sz, sz))
-        for i in range(sz):
-            for j in range(i, sz):
-                if sgs[i][0] is not None and sgs[j][0] is not None:
-                    mx_base[i, j] = np.einsum('ij,ji->', sgs[i][0],
-                                              sgs[j][0]) / 2
-                elif sgs[i][1] is not None and sgs[j][2] is not None:
-                    mx_base[i, j] += np.einsum('ij,ji->', sgs[i][1], sgs[j][2])
-        mx_base = mx_base + np.triu(mx_base, 1).T
-        sz = len(inds_rf)
-        mx_rf = np.zeros((sz, sz))
-        for i in range(sz):
-            for j in range(i, sz):
-                mx_rf[i, j] = np.einsum('ij,ij->', rfs[i], rfs[j])
-        mx_rf = mx_rf + np.triu(mx_rf, 1).T
-        inds_base = np.array(inds_base, dtype=np.int)
-        inds_rf = np.array(inds_rf, dtype=np.int)
-        inds = np.append(inds_base, inds_rf)
-        fim = block_diag(mx_base, mx_rf)
-        fim = fim[:, inds][:, inds]
-        if inverse:
-            try:
-                mx_base_inv = chol_inv(mx_base)
-                mx_rf_inv = chol_inv(mx_rf)
-                self._fim_warn = False
-            except np.linalg.LinAlgError:
-                logging.warn("Fisher Information Matrix is not PD."
-                             "Moore-Penrose inverse will be used instead of "
-                             "Cholesky decomposition. See "
-                             "10.1109/TSP.2012.2208105.")
-                self._fim_warn = True
-                mx_base_inv = np.linalg.pinv(mx_base)
-                mx_rf_inv = np.linalg.pinv(mx_rf)
-            fim_inv = block_diag(mx_base_inv, mx_rf_inv)
-            fim_inv = fim_inv[inds, :][:, inds]
-            return (fim, fim_inv)
-        return fim
-
     def calc_fim_ml(self, inverse=False):
         """
         Calculate Fisher Information Matrix.
@@ -916,6 +805,8 @@ class ModelEffects(ModelMeans):
         inverse : bool, optional
             If True, function also returns inverse of FIM. The default is
             False.
+        reml : bool, optional
+            If True, then adjustment for REML is made. The default is False.
 
         Returns
         -------
@@ -947,7 +838,7 @@ class ModelEffects(ModelMeans):
               for g in l_grad]
         param_len = len(self.param_vals)
         fim = np.zeros((param_len, param_len))
-        n = self.n_samples
+        n = self.num_n
         m = self.num_m
         n, m = m, n
         for i in range(param_len):
@@ -1004,24 +895,36 @@ class ModelEffects(ModelMeans):
         """
         sigma, (m, c) = self.calc_sigma()
         mean_grad = self.calc_mean_grad(m, c)
-        w_inv = self.calc_t_inv(sigma)[0]
-        r = self.calc_l(sigma)
-        r_inv = chol_inv(r)
-        sigma = np.kron(np.diag(w_inv), r_inv)
-        sz = len(self.param_vals)
-        m = self.num_n, self.num_m
-        tr_r = np.trace(r)
-        mean_grad = [g.reshape((-1, 1), order="F") if len(g.shape) else None
-                     for g in mean_grad]
-        prod_means = [g.T @ sigma * tr_r if g is not None else None
-                      for g in mean_grad]
-        info = np.zeros((sz, sz))
-        for i in range(sz):
-            for k in range(i, sz):
-                if prod_means[i] is not None and mean_grad[k] is not None:
-                    info[i, k] += prod_means[i] @ mean_grad[k]
-        fim = info + np.triu(info, 1).T
-        fim = fim
+        t_inv = self.calc_t_inv(sigma)[0]
+        l = self.calc_l(sigma)
+        try:
+            l_inv = chol_inv(l)
+        except np.linalg.LinAlgError:
+            l_inv = np.linalg.pinv(l)
+        tr_l = np.trace(l)
+        m_t = [g * t_inv if not np.isscalar(g) else None for g in mean_grad]
+        m_l = [g.T @ l_inv if not np.isscalar(g) else None for g in mean_grad]
+        inds = list()
+        c = 0
+        for g in m_t:
+            if g is not None:
+                inds.append(c)
+                c += 1
+            else:
+                inds.append(None)
+        fim_means = np.zeros((len(inds), len(inds)))
+        param_len = len(self.param_vals)
+        fim = np.zeros((param_len, param_len))
+        for i in range(param_len):
+            for j in range(i, param_len):
+                mtj = m_t[j]
+                mli = m_l[i]
+                if mli is not None and mtj is not None:
+                    fim[i, j] = tr_l * np.einsum('ij,ji', mli, mtj)
+                    fim[j, i] = fim[i, j]
+                    it, jt = inds[i], inds[j]
+                    fim_means[it, jt] = fim[i, j]
+                    fim_means[jt, it] = fim[i, j]
         if inverse:
             fim_inv = np.linalg.pinv(fim)
             return (fim, fim_inv)
