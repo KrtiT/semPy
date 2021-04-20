@@ -767,7 +767,7 @@ class ModelEffects(ModelMeans):
         V1 = center.T @ A
         V3 = B @ r_inv
         V2 = self.num_n * r_inv / tr_r - A @ V3
-        
+
         sigma_grad = self.calc_sigma_grad(m, c)
         mean_grad = self.calc_mean_grad(m, c)
         r_grad = self.calc_l_grad(sigma_grad)

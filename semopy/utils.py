@@ -184,7 +184,7 @@ def chol_inv2(x: np.ndarray):
 
 
 def compare_results(model, true: pd.DataFrame, error='relative',
-                    ignore_cov=False, drop_equal=True, mandatory=False,
+                    ignore_cov=True, drop_equal=True, mandatory=False,
                     return_table=False):
     """
     Compare parameter estimates in model to parameter values in a DataFrame.
@@ -200,7 +200,7 @@ def compare_results(model, true: pd.DataFrame, error='relative',
         If 'relative', relative errors are calculated. Absolute errors are
         calculated otherwise. The default is 'relative'.
     ignore_cov : bool, optional
-        If True, then covariances (~~) are ignored. The default is False.
+        If True, then covariances (~~) are ignored. The default is True.
     drop_equal : bool, optional
         If True, then parameters that are exactly equal in model are dropped.
         Effectively, it clears result from fixed loadings in Lambda. The
@@ -267,7 +267,8 @@ def compare_results(model, true: pd.DataFrame, error='relative',
     return errs
 
 
-def calc_zkz(groups: pd.Series, k: pd.DataFrame):
+def calc_zkz(groups: pd.Series, k: pd.DataFrame, p_names=None, 
+             return_z=False):
     """
     Calculate ZKZ^T relationship matrix from covariance matrix K.
 
@@ -278,6 +279,11 @@ def calc_zkz(groups: pd.Series, k: pd.DataFrame):
     k : pd.DataFrame
         Covariance-across-groups matrix. If None, then its calculate as an
         identity matrix.
+    p_names : List[str], optional
+        List of unique group names. If False, then it is determined from the
+        groups variable. The default is None.
+    return_z : bool, optional
+        If True, then only Z is returned. The default is False.
 
     Raises
     ------
@@ -293,17 +299,39 @@ def calc_zkz(groups: pd.Series, k: pd.DataFrame):
         ZKZ^T matrix.
 
     """
-    
-    p_names = list(groups.unique())
+    if p_names is None:
+        lt = list()
+        p_names = groups.unique()
+        for gt in groups.unique():
+            if type(gt) is str:
+                lt.extend(gt.split(';'))
+            else:
+                if not np.isfinite(gt):
+                    continue
+                lt.append(gt)
+        p_names = sorted(set(lt))
     p, n = len(p_names), len(groups)
+    z = np.zeros((n, p))
+    for i, germ in enumerate(groups):
+        if type(germ) is str:
+            for g in germ.split(';'):
+                try:
+                    j = p_names.index(g)
+                    z[i, j] = 1.0
+                except ValueError:
+                    continue
+        else:
+            try:
+                j = p_names.index(germ)
+                z[i, j] = 1.0
+            except ValueError:
+                continue
+    if return_z:
+        return z
     if k is None:
         k = np.identity(p)
     elif k.shape[0] != p:
         raise Exception("Dimensions of K don't match number of groups.")
-    z = np.zeros((n, p))
-    for i, germ in enumerate(groups):
-        j = p_names.index(germ)
-        z[i, j] = 1.0
     if type(k) is pd.DataFrame:
         try:
             k = k.loc[p_names, p_names].values

@@ -24,7 +24,9 @@ x2 ~~ eta2'''
 __folder = os.path.dirname(os.path.abspath(__file__))
 __filename = '%s/article_data.csv' % __folder
 __u_filename = '%s/article_data_u.npy' % __folder
+__u2_filename = '%s/article_data_u2.npy' % __folder
 __k_filename = '%s/article_data_k.npy' % __folder
+__k2_filename = '%s/article_data_k2.npy' % __folder
 __v_filename = '%s/article_data_u_vars.txt' % __folder
 __params_filename = '%s/article_params.csv' % __folder
 
@@ -41,7 +43,7 @@ def get_model():
     return __desc
 
 
-def get_data(drop_factors=True, random_effects=False):
+def get_data(drop_factors=True, random_effects=0):
     """
     Retrieve dataset.
     
@@ -50,8 +52,9 @@ def get_data(drop_factors=True, random_effects=False):
     drop_factors : bool, optional
         If True, then factors are dropped from the dataframe. The default is
         True.
-    random_effects : bool, optional
-        If True, then data contaminated with random effects together with
+    random_effects : int, optional
+        Can be 0, 1 or 2: number of random effects that "spoil" the data.
+        If non-zero, then data contaminated with random effects together with
         covariance matrix K is returned instead.
 
     Returns
@@ -72,7 +75,13 @@ def get_data(drop_factors=True, random_effects=False):
         with open(__v_filename, 'r') as f:
             cols = f.read().split(' ')
         data[cols] += u
-        return data, k
+        if random_effects == 1:
+            return data, k
+        k2 = np.load(__k2_filename)
+        k2 = pd.DataFrame(k2, index=data['group'], columns=data['group'])
+        u = np.load(__u2_filename)
+        data[cols] += u
+        return data, (k, k2)
     return data
 
 def get_params():

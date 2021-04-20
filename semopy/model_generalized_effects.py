@@ -389,7 +389,7 @@ class ModelGeneralizedEffects(ModelMeans):
         if sigma is None:
             sigma, _ = self.calc_sigma()
         if k is None:
-            k = [effect.calc_k(self) for effect in self.effects]
+            k = self.calc_ks()
         n = self.n_samples
         return sum(np.trace(k) * d for d, k in zip(self.mxs_d, k)) + n * sigma
 
@@ -426,11 +426,11 @@ class ModelGeneralizedEffects(ModelMeans):
             if sigma_grad is None:
                 sigma_grad = self.calc_sigma_grad(m, c)
         if k is None:
-            k = [effect.calc_k(self) for effect in self.effects]
+            k = self.calc_ks()
             if k_grad is None:
-                k_grad= [effect.calc_k_grad(self) for effect in self.effects]
+                k_grad= self.calc_ks_grad()
         k = list(map(np.trace, k))
-        k_grad = [list(map(np.trace, g)) for g in k_grad]
+        k_grad = list(map(np.trace, k_grad))
         grad = list()
         n = self.n_samples
         for g, df in zip(sigma_grad, self.mx_diffs):
@@ -471,7 +471,7 @@ class ModelGeneralizedEffects(ModelMeans):
         if sigma is None:
             sigma, _ = self.calc_sigma()
         if k is None:
-            k = [effect.calc_k(self) for effect in self.effects]
+            k = self.calc_ks()
         s = self.mx_identity * np.trace(sigma)
         return sum(np.trace(d) * k for d, k in zip(self.mxs_d, k)) + s
 
@@ -508,9 +508,9 @@ class ModelGeneralizedEffects(ModelMeans):
             if sigma_grad is None:
                 sigma_grad = self.calc_sigma_grad(m, c)
         if k is None:
-            k = [effect.calc_k(self) for effect in self.effects]
+            k = self.calc_ks()
             if k_grad is None:
-                k_grad= [effect.calc_k_grad(self) for effect in self.effects]
+                k_grad= self.calc_ks_grad()
         grad = list()
         for g, df in zip(sigma_grad, self.mx_diffs):
             try:
@@ -529,6 +529,23 @@ class ModelGeneralizedEffects(ModelMeans):
                 c += 1
         return grad
 
+    def calc_ks(self):
+        return [effect.calc_k(self) for effect in self.effects]
+
+    def calc_ks_grad(self):
+        grad = list()
+        for effect in self.effects:
+            grad.extend(effect.calc_k_grad(self))
+        return grad
+    
+    def calc_mean_grad(self, m=None, c=None):
+        if m is None:
+            m, c = self.calc_sigma()[1]
+        grad = super().calc_mean_grad(m, c)
+        n = len(grad)
+        p = len(self.param_vals)
+        grad.extend([np.float(0.0)] * (p - n))
+        return grad
     
     '''
     ------------------Matrix Variate Normal Maximum Likelihood-----------------
@@ -550,7 +567,7 @@ class ModelGeneralizedEffects(ModelMeans):
         """
         self.update_matrices(x)
         sigma, (m, _) = self.calc_sigma()
-        k = [effect.calc_k(self) for effect in self.effects]
+        k = self.calc_ks()
         l = self.calc_l(sigma, k)
         t = self.calc_t(sigma, k)
         try:
@@ -560,7 +577,6 @@ class ModelGeneralizedEffects(ModelMeans):
             return np.nan
         center = self.mx_data - self.calc_mean(m)
         tr_l = np.trace(l)
-        # tr_l = 1
         a = tr_l * np.einsum('ij,ji', l_inv @ center, t_inv @ center.T)
         m = self.num_m
         n = self.n_samples
@@ -570,7 +586,7 @@ class ModelGeneralizedEffects(ModelMeans):
         grad = np.zeros_like(x)
         self.update_matrices(x)
         sigma, (m, c) = self.calc_sigma()
-        k = [effect.calc_k(self) for effect in self.effects]
+        k = self.calc_ks()
         try:
             l = self.calc_l(sigma, k)
             l_inv = chol_inv(l)
@@ -581,17 +597,17 @@ class ModelGeneralizedEffects(ModelMeans):
             return grad
         mean_grad = self.calc_mean_grad(m, c)
         sigma_grad = self.calc_sigma_grad(m, c)
-        k_grad = [effect.calc_k_grad(self) for effect in self.effects]
+        k_grad = self.calc_ks_grad()
         l_grad = self.calc_l_grad(sigma, sigma_grad, k, k_grad)
         t_grad = self.calc_t_grad(sigma, sigma_grad, k, k_grad)
         center = self.mx_data - self.calc_mean(m)
         m = self.num_m
         n = self.n_samples
         c0 = t_inv @ center.T @ l_inv
-        a1 = l_inv @ center @ t_inv
-        c1 = center.T @ a1
-        c2 = a1 @ center.T
-        big_tr = np.einsum('ij,ji', c0, center)
+        # a1 = l_inv @ center @ t_inv
+        c1 = c0 @ center
+        c2 = center @ c0
+        big_tr = np.trace(c1)
         tr_l = np.trace(l)
         for i, (m_g, l_g, t_g) in enumerate(zip(mean_grad, l_grad, t_grad)):
             g = 0.0
@@ -599,12 +615,12 @@ class ModelGeneralizedEffects(ModelMeans):
                 g -= 2 * tr_l * np.einsum('ij,ji', c0, m_g)
             if not np.isscalar(l_g):
                 ai = t_inv @ t_g
-                bi = l_inv @ l_g
+                bi = l_g @ l_inv
                 tr_lg = np.trace(l_g)
                 g += tr_lg * big_tr + m * np.trace(ai) + n * np.trace(bi)
                 g -= tr_l * (np.einsum('ij,ji', ai, c1) + \
-                            np.einsum('ij,ji', bi, c2))
-                g -= n * m * tr_lg / tr_l
+                             np.einsum('ij,ji', bi, c2))
+                g -= n * m * tr_lg / tr_l 
             grad[i] = g
         return grad
 
@@ -832,7 +848,7 @@ class ModelGeneralizedEffects(ModelMeans):
         sigma_grad = self.calc_sigma_grad(m, c)
         mean_grad = self.calc_mean_grad(m, c)
         ks = [effect.calc_k(self) for effect in self.effects]
-        k_grad = [effect.calc_k_grad(self) for effect in self.effects]
+        k_grad = self.calc_ks_grad()
         t = self.calc_t(sigma, ks)
         l = self.calc_l(sigma, ks)
         try:

@@ -53,7 +53,7 @@ def start_lambda(model, lval: str, rval: str):
         return 0.0
     obs = model.vars['observed']
     first = rval
-    while first not in obs:
+    if first not in obs:
         try:
             first = model.first_manifs[first]
         except KeyError:
@@ -206,7 +206,7 @@ def start_d(model, lval: str, rval: str):
         Starting value.
 
     """
-    return 1.0
+    return 0.05
 
 def start_v(model, lval: str, rval: str):
     """
