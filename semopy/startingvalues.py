@@ -53,9 +53,11 @@ def start_lambda(model, lval: str, rval: str):
         return 0.0
     obs = model.vars['observed']
     first = rval
-    if first not in obs:
+    while first not in obs:
         try:
             first = model.first_manifs[first]
+            if first == rval:
+                return 0.0
         except KeyError:
             return 0.0
     if first is None or not hasattr(model, 'mx_data'):

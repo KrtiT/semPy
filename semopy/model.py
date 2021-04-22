@@ -86,7 +86,7 @@ class Model(ModelBase):
                            'ULS': (self.obj_uls, self.grad_uls),
                            'GLS': (self.obj_gls, self.grad_gls),
                            'WLS': (self.obj_wls, self.grad_wls),
-                          # 'DWLS': (self.obj_dwls, self.grad_dwls),
+                           'DWLS': (self.obj_dwls, self.grad_dwls),
                            'FIML': (self.obj_fiml, self.grad_fiml)}
         super().__init__(description)
 
@@ -1524,6 +1524,29 @@ class Model(ModelBase):
                         for g in self.calc_sigma_grad(m, c)]
         diff = sigma - self.mx_vech_s
         t = self.mx_w_inv @ diff
+        return 2 * np.array([g @ t for g in sigma_grad])
+    
+    def obj_dwls(self, x: np.ndarray):
+        self.update_matrices(x)
+        try:
+            diff = self.calc_sigma()[0][self.inds_triu_sigma] - self.mx_vech_s
+        except np.linalg.LinAlgError:
+            return np.nan
+        return diff.T * self.mx_w_inv @ diff
+    
+    def grad_dwls(self, x: np.ndarray):
+        self.update_matrices(x)
+        try:
+            sigma, (m, c) = self.calc_sigma()
+            sigma = sigma[self.inds_triu_sigma]
+        except np.linalg.LinAlgError:
+            t = np.zeros((len(x),))
+            t[:] = np.inf
+            return t
+        sigma_grad = [g[self.inds_triu_sigma].T
+                        for g in self.calc_sigma_grad(m, c)]
+        diff = sigma - self.mx_vech_s
+        t = self.mx_w_inv * diff
         return 2 * np.array([g @ t for g in sigma_grad])
         
 
