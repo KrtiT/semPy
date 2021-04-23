@@ -10,7 +10,7 @@ setup(
       include_package_data=True,
       package_data={'': ['examples/*.csv', 'examples/*.npy']},
       name="semopy",
-      version="2.1.4",
+      version="2.1.5",
       author="Georgy Meshcheryakov",
       author_email="metsheryakov_ga@spbstu.ru",
       description="Structural Equation Modeling Optimization in Python.",

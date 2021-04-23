@@ -1066,7 +1066,7 @@ class Model(ModelBase):
         self.mx_vech_s = self.mx_cov[self.inds_triu_sigma]
 
 
-    def predict(self, x: pd.DataFrame):
+    def predict(self, x: pd.DataFrame, intercepts=False):
         """
         Predict data given certain observations.
         
@@ -1077,13 +1077,16 @@ class Model(ModelBase):
         x : pd.DataFrame
             DataFrame with missing variables either not present at all, or
             with missing entries set to NaN.
+        intercepts : bool, optional
+            If True, then intercepts will be estimated and used in prediction
+            procedure.
 
         Returns
         -------
         None.
 
         """
-        sigma = self.calc_sigma()[0]
+        sigma, (m, c) = self.calc_sigma()
         obs = self.vars['observed']
         result = x.copy()
         for v in obs:
@@ -1097,7 +1100,33 @@ class Model(ModelBase):
             missing = ~present
             sigma12 = sigma[missing][:, present]
             sigma22 = np.linalg.pinv(sigma[present][:, present])
-            row.iloc[missing] = sigma12 @ sigma22 @ row.iloc[present]
+            if intercepts:
+                from .means import estimate_means
+                means = estimate_means(self)
+                lvals = list(means['lval'])
+                ests = list(means['Estimate'])
+                ins = list()
+                ob = list()
+                for v in self.vars['inner']:
+                    try:
+                        i = lvals.index(v)
+                        ins.append(ests[i])
+                    except ValueError:
+                        ins.append(0)
+                for v in obs:
+                    if v in self.vars['_output']:
+                        try:
+                            i = lvals.index(v)
+                            ob.append(ests[i])
+                        except ValueError:
+                            ob.append(0)
+                    else:
+                        ob.append(0)
+                means = m @ np.array(ins) + np.array(ob)
+                c = row.iloc[present] - means[present]
+                row.iloc[missing] = means[missing] + sigma12 @ sigma22 @ c
+            else:
+                row.iloc[missing] = sigma12 @ sigma22 @ row.iloc[present]
         return result
             
 

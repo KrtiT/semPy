@@ -306,7 +306,8 @@ class MeanEstimator():
         return res
 
 
-def estimate_means(mod: Model, method='ML', solver='SLSQP', ret_opt=False):
+def estimate_means(mod: Model, method='ML', solver='SLSQP', 
+                   pvals=False, ret_opt=False):
     """
     Estimate means for meanstructure-free model.
 
@@ -322,6 +323,9 @@ def estimate_means(mod: Model, method='ML', solver='SLSQP', ret_opt=False):
         Can 'ML'/'GLS', 'ULS'. The default is 'ML'.
     solver : str, optional
         Solver to use. The default is 'SLSQP'.
+    pvals : bool, optional
+        If True, then p-values are returned. They posses no information for
+        most purposes here and usually are close to 1.0. The default is False.
     ret_opt : bool, optional
         If True, otpimizer info is also returned. The default is False.
 
@@ -336,9 +340,14 @@ def estimate_means(mod: Model, method='ML', solver='SLSQP', ret_opt=False):
     res = me.fit(method, solver)
     df = list()
     i = 0
-    se = calc_se(me)
-    zv = calc_zvals(me, std_errors=se)
-    pv = calc_pvals(me, z_scores=zv)
+    if pvals:
+        se = calc_se(me)
+        zv = calc_zvals(me, std_errors=se)
+        pv = calc_pvals(me, z_scores=zv)
+    else:
+        se = np.zeros_like(res.x)
+        zv = se
+        pv = zv
     for v in mod.vars['inner']:
         if v in mod.vars['observed']:
             df.append((v, '~', '1', res.x[i], se[i], zv[i], pv[i]))
@@ -349,4 +358,6 @@ def estimate_means(mod: Model, method='ML', solver='SLSQP', ret_opt=False):
             i += 1
     df = pd.DataFrame(df, columns=['lval', 'op', 'rval', 'Estimate',
                                    'Std. Err', 'z-value', 'p-value'])
+    if not pvals:
+        df = df.drop(['Std. Err', 'z-value', 'p-value'], axis=1)
     return df if not ret_opt else (df, res)

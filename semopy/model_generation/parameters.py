@@ -75,42 +75,60 @@ def generate_parameters(desc: str, intercepts=False,
     psi = matrices['Psi'].values
     for i in range(psi.shape[0]):
         if type(psi[i, i]) is str:
-            psi[i, i] = sampler_var_psi()
-            d['lval'].append(psi_rows[i])
-            d['op'].append('~~')
-            d['rval'].append(psi_rows[i])
-            d['Estimate'].append(psi[i, i])
+            p = m.parameters[psi[i, i]]
+            if p.active:
+                psi[i, i] = sampler_var_psi()
+                d['lval'].append(psi_rows[i])
+                d['op'].append('~~')
+                d['rval'].append(psi_rows[i])
+                d['Estimate'].append(psi[i, i])
+            else:
+                psi[i, i] = p.start
     for i in range(psi.shape[0]):
         for j in range(psi.shape[1]):
             if i != j and type(psi[i, j]) is str:
-                t = (psi[i, i] * psi[j, j]) ** (0.5)
-                psi[i, j] = sampler_cor_psi() * t
-                psi[j, i] = psi[i, j]
-                d['lval'].append(psi_rows[i])
-                d['op'].append('~~')
-                d['rval'].append(psi_rows[j])
-                d['Estimate'].append(psi[i, j])
+                p = m.parameters[psi[i, j]]
+                if p.active:
+                    t = (psi[i, i] * psi[j, j]) ** (0.5)
+                    psi[i, j] = sampler_cor_psi() * t
+                    psi[j, i] = psi[i, j]
+                    d['lval'].append(psi_rows[i])
+                    d['op'].append('~~')
+                    d['rval'].append(psi_rows[j])
+                    d['Estimate'].append(psi[i, j])
+                else:
+                    psi[i, j] = p.start
+                    psi[j, i] = p.start
     m.mx_psi = psi.astype('float64')
     
     theta_rows = matrices['Theta'].index
     theta = matrices['Theta'].values
     for i in range(theta.shape[0]):
         if type(theta[i, i]) is str:
-            theta[i, i] = sampler_var_theta()
-            d['lval'].append(theta_rows[i])
-            d['op'].append('~~')
-            d['rval'].append(theta_rows[i])
-            d['Estimate'].append(theta[i, i])
+            p = m.parameters[theta[i, i]]
+            if p.active:
+                theta[i, i] = sampler_var_theta()
+                d['lval'].append(theta_rows[i])
+                d['op'].append('~~')
+                d['rval'].append(theta_rows[i])
+                d['Estimate'].append(theta[i, i])
+            else:
+                theta[i, i] = p.start
     for i in range(theta.shape[0]):
         for j in range(theta.shape[1]):
             if i != j and type(theta[i, j]) is str:
-                t = (theta[i, i] * theta[j, j]) ** (0.5)
-                theta[i, j] = sampler_cor_theta() * t
-                theta[j, i] = theta[i, j]
-                d['lval'].append(theta_rows[i])
-                d['op'].append('~~')
-                d['rval'].append(theta_rows[j])
-                d['Estimate'].append(theta[i, j])
+                p = m.parameters[theta[i, j]]
+                if p.active:
+                    t = (theta[i, i] * theta[j, j]) ** (0.5)
+                    theta[i, j] = sampler_cor_theta() * t
+                    theta[j, i] = theta[i, j]
+                    d['lval'].append(theta_rows[i])
+                    d['op'].append('~~')
+                    d['rval'].append(theta_rows[j])
+                    d['Estimate'].append(theta[i, j])
+                else:
+                    theta[i, j] = p.start
+                    theta[j, i] = p.start
     m.mx_theta = theta.astype('float64')
     
     beta_rows = matrices['Beta'].index
@@ -119,11 +137,15 @@ def generate_parameters(desc: str, intercepts=False,
     for i in range(beta.shape[0]):
         for j in range(beta.shape[1]):
             if type(beta[i, j]) is str:
-                beta[i, j] = sampler_reg_beta()
-                d['lval'].append(beta_rows[i])
-                d['op'].append('~')
-                d['rval'].append(beta_cols[j])
-                d['Estimate'].append(beta[i, j])
+                p = m.parameters[beta[i, j]]
+                if p.active:
+                    beta[i, j] = sampler_reg_beta()
+                    d['lval'].append(beta_rows[i])
+                    d['op'].append('~')
+                    d['rval'].append(beta_cols[j])
+                    d['Estimate'].append(beta[i, j])
+                else:
+                    beta[i, j] = p.start
     m.mx_beta = beta.astype('float64')
 
     lamb_rows = matrices['Lambda'].index
@@ -134,15 +156,19 @@ def generate_parameters(desc: str, intercepts=False,
     for j in range(lamb.shape[1]):
         for i in range(lamb.shape[0]):
             if type(lamb[i, j]) is str:
-                if firsts.get(lamb_cols[j], None) == lamb_rows[i]:
-                    lamb[i, j] = 1.0
-                    s.add(lamb_cols[j])
+                p = m.parameters[lamb[i, j]]
+                if p.active:
+                    if firsts.get(lamb_cols[j], None) == lamb_rows[i]:
+                        lamb[i, j] = 1.0
+                        s.add(lamb_cols[j])
+                    else:
+                        lamb[i, j] = sampler_reg_lambda()
+                    d['lval'].append(lamb_rows[i])
+                    d['op'].append('~')
+                    d['rval'].append(lamb_cols[j])
+                    d['Estimate'].append(lamb[i, j])
                 else:
-                    lamb[i, j] = sampler_reg_lambda()
-                d['lval'].append(lamb_rows[i])
-                d['op'].append('~')
-                d['rval'].append(lamb_cols[j])
-                d['Estimate'].append(lamb[i, j])
+                    lamb[i, j] = p.start
     m.mx_lambda = lamb.astype('float64')
 
     gamma_rows = matrices['Gamma1'].index
@@ -151,11 +177,15 @@ def generate_parameters(desc: str, intercepts=False,
     for i in range(gamma.shape[0]):
         for j in range(gamma.shape[1]):
             if type(gamma[i, j]) is str:
-                gamma[i, j] = sampler_reg_gamma()
-                d['lval'].append(gamma_rows[i])
-                d['op'].append('~')
-                d['rval'].append(gamma_cols[j])
-                d['Estimate'].append(gamma[i, j])
+                p = m.parameters[gamma[i, j]]
+                if p.active:
+                    gamma[i, j] = sampler_reg_gamma()
+                    d['lval'].append(gamma_rows[i])
+                    d['op'].append('~')
+                    d['rval'].append(gamma_cols[j])
+                    d['Estimate'].append(gamma[i, j])
+                else:
+                    gamma[i, j] = p.start
     m.mx_gamma1 = gamma.astype('float64')
 
     gamma_rows = matrices['Gamma2'].index
@@ -164,11 +194,15 @@ def generate_parameters(desc: str, intercepts=False,
     for i in range(gamma.shape[0]):
         for j in range(gamma.shape[1]):
             if type(gamma[i, j]) is str:
-                gamma[i, j] = sampler_reg_gamma()
-                d['lval'].append(gamma_rows[i])
-                d['op'].append('~')
-                d['rval'].append(gamma_cols[j])
-                d['Estimate'].append(gamma[i, j])
+                p = m.parameters[gamma[i, j]]
+                if p.active:
+                    gamma[i, j] = sampler_reg_gamma()
+                    d['lval'].append(gamma_rows[i])
+                    d['op'].append('~')
+                    d['rval'].append(gamma_cols[j])
+                    d['Estimate'].append(gamma[i, j])
+                else:
+                    gamma[i, j] = p.start
     m.mx_gamma2 = gamma.astype('float64')
 
     return pd.DataFrame.from_dict(d), m

@@ -28,6 +28,8 @@ __u2_filename = '%s/article_data_u2.npy' % __folder
 __k_filename = '%s/article_data_k.npy' % __folder
 __k2_filename = '%s/article_data_k2.npy' % __folder
 __v_filename = '%s/article_data_u_vars.txt' % __folder
+__ma_filename = '%s/article_data_ma.npy' % __folder
+__mv_filename = '%s/article_data_ma_vars.txt' % __folder
 __params_filename = '%s/article_params.csv' % __folder
 
 def get_model():
@@ -43,7 +45,7 @@ def get_model():
     return __desc
 
 
-def get_data(drop_factors=True, random_effects=0):
+def get_data(drop_factors=True, random_effects=0, moving_average=False):
     """
     Retrieve dataset.
     
@@ -56,6 +58,9 @@ def get_data(drop_factors=True, random_effects=0):
         Can be 0, 1 or 2: number of random effects that "spoil" the data.
         If non-zero, then data contaminated with random effects together with
         covariance matrix K is returned instead.
+    moving_average : bool, optional
+        If True, then data is also 'contaminated' with MA(2) noise. The default
+        is False.
 
     Returns
     -------
@@ -67,6 +72,12 @@ def get_data(drop_factors=True, random_effects=0):
     if drop_factors:
         etas = [v for v in data.columns if v.startswith('eta')]
         data = data.drop(etas, axis=1)
+    if moving_average:
+        data['time'] = list(map(float, data.index))
+        ma = np.load(__ma_filename)
+        with open(__mv_filename, 'r') as f:
+            cols = f.read().split(' ')
+        data[cols] += ma
     if random_effects:
         data['group'] = data.index
         k = np.load(__k_filename)

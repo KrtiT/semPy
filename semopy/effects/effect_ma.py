@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 """Moving average effect model."""
-from ..utils import calc_zkz
 from .effect_base import EffectBase
-import pandas as pd
 import numpy as np
 
 
@@ -120,11 +118,12 @@ class EffectMA(EffectBase):
     def calc_k_grad(self, model):
         params = self.parameters
         n = self.num_n
-        grad = [np.zeros((n, n)) for _ in range(n)]
+        m = len(params)
+        grad = [np.zeros((n, n)) for _ in range(m)]
         mx = np.zeros((n, n))
         denom = 1 + (params ** 2).sum()
         for i, ind in enumerate(self.inds):
-            dro = np.array([0.0] * len(params))
+            dro = np.array([0.0] * m)
             if i == 0:
                 num = 1
             else:
@@ -136,7 +135,7 @@ class EffectMA(EffectBase):
                 dro[p + i - 1] += params[p - 1] 
             dro /= denom
             d1 = - 2 * num / (denom ** 2)
-            for p in range(len(params)):
+            for p in range(m):
                 dro[p] += d1 * params[p]
                 mx = grad[p]
                 mx[ind] += dro[p]
