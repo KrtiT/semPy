@@ -1093,13 +1093,22 @@ class Model(ModelBase):
             if v not in result:
                 result[v] = np.nan
         result = result[obs]
+        d = dict()
         for _, row in result.iterrows():
             present = [True if np.isfinite(row[r]) else False
                        for r in obs]
-            present = np.array(present)
-            missing = ~present
-            sigma12 = sigma[missing][:, present]
-            sigma22 = np.linalg.pinv(sigma[present][:, present])
+            present = tuple(present)
+            if present in d:
+                continue
+            pr = np.array(present)
+            missing = ~pr
+            sigma12 = sigma[missing][:, pr]
+            sigma22 = np.linalg.pinv(sigma[pr][:, pr])
+            d[present] = (pr, missing, sigma12 @ sigma22)
+        for _, row in result.iterrows():
+            present = [True if np.isfinite(row[r]) else False
+                       for r in obs]
+            present, missing, sprod = d[tuple(present)]
             if intercepts:
                 from .means import estimate_means
                 means = estimate_means(self)
@@ -1124,9 +1133,9 @@ class Model(ModelBase):
                         ob.append(0)
                 means = m @ np.array(ins) + np.array(ob)
                 c = row.iloc[present] - means[present]
-                row.iloc[missing] = means[missing] + sigma12 @ sigma22 @ c
+                row.iloc[missing] = means[missing] + sprod @ c
             else:
-                row.iloc[missing] = sigma12 @ sigma22 @ row.iloc[present]
+                row.iloc[missing] = sprod @ row.iloc[present]
         return result
             
 
