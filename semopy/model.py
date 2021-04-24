@@ -1092,26 +1092,30 @@ class Model(ModelBase):
         for v in obs:
             if v not in result:
                 result[v] = np.nan
-        result = result[obs]
+        result = result[obs].values
         d = dict()
-        for _, row in result.iterrows():
-            present = [True if np.isfinite(row[r]) else False
-                       for r in obs]
-            present = tuple(present)
+        if intercepts:
+            from .means import estimate_means
+            means = estimate_means(self)
+        for i in range(len(result)):
+            pr = np.isfinite(result[i])
+            present = tuple(pr)
             if present in d:
                 continue
-            pr = np.array(present)
+            if np.all(pr):
+                d[present] = (None, None, None)
+                continue
             missing = ~pr
             sigma12 = sigma[missing][:, pr]
             sigma22 = np.linalg.pinv(sigma[pr][:, pr])
             d[present] = (pr, missing, sigma12 @ sigma22)
-        for _, row in result.iterrows():
-            present = [True if np.isfinite(row[r]) else False
-                       for r in obs]
+        for i in range(len(result)):
+            row = result[i]
+            present = tuple(np.isfinite(row))
             present, missing, sprod = d[tuple(present)]
+            if present is None:
+                continue
             if intercepts:
-                from .means import estimate_means
-                means = estimate_means(self)
                 lvals = list(means['lval'])
                 ests = list(means['Estimate'])
                 ins = list()
@@ -1131,13 +1135,12 @@ class Model(ModelBase):
                             ob.append(0)
                     else:
                         ob.append(0)
-                means = m @ np.array(ins) + np.array(ob)
-                c = row.iloc[present] - means[present]
-                row.iloc[missing] = means[missing] + sprod @ c
+                mn = m @ np.array(ins) + np.array(ob)
+                c = row[present] - mn[present]
+                row[missing] = mn[missing] + sprod @ c
             else:
-                row.iloc[missing] = sprod @ row.iloc[present]
-        return result
-            
+                row[missing] = sprod @ row[present]
+        return pd.DataFrame(result, columns=obs)
 
     def predict_general(self, x: pd.DataFrame, solver='SLSQP', factors=True,
                         ret_opt=False, chunk_size=20):
