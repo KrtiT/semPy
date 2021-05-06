@@ -14,7 +14,7 @@ except ModuleNotFoundError:
 
 def semplot(mod: Model, filename: str, inspection=None, plot_covs=False,
             plot_exos=True, images=None, engine='dot', latshape='circle',
-            show=False):
+            plot_ests=True, show=False):
     """
     Draw a SEM diagram.
 
@@ -42,6 +42,9 @@ def semplot(mod: Model, filename: str, inspection=None, plot_covs=False,
     latshape : str, optional
         Graphviz-compaitable shape for latent variables. The default is
         'circle'.
+    plot_ests : bool, optional
+        If True, then estimates are also plotted on the graph. The default is
+        True.
     show : bool, optional
         If True, the 
 
@@ -52,6 +55,10 @@ def semplot(mod: Model, filename: str, inspection=None, plot_covs=False,
     """
     if not __GRAPHVIZ:
         raise ModuleNotFoundError("No graphviz module is installed.")
+    if type(mod) is str:
+        mod = Model(mod)
+    if not hasattr(mod, 'last_result'):
+        plot_ests = False
     if inspection is None:
         inspection = mod.inspect()
     if images is None:
@@ -87,10 +94,13 @@ def semplot(mod: Model, filename: str, inspection=None, plot_covs=False,
         if (rval not in all_vars) or (~plot_exos and rval in exo_vars) or\
             (rval == '1'):
             continue
-        pval = row['p-value']
-        label = '{:.3f}'.format(float(est))
-        if pval !='-':
-            label += r'\np-val: {:.2f}'.format(float(pval))
+        if plot_ests:
+            pval = row['p-value']
+            label = '{:.3f}'.format(float(est))
+            if pval !='-':
+                label += r'\np-val: {:.2f}'.format(float(pval))
+        else:
+            label = str()
         g.edge(rval, lval, label=label)
     if plot_covs:
         covs = inspection[inspection['op'] == '~~']
@@ -98,10 +108,13 @@ def semplot(mod: Model, filename: str, inspection=None, plot_covs=False,
             lval, rval, est = row['lval'], row['rval'], row['Estimate']
             if lval == rval:
                 continue
-            pval = row['p-value']
-            label = '{:.3f}'.format(float(est))
-            if pval !='-':
-                label += r'\np-val: {:.2f}'.format(float(pval))
+            if plot_ests:
+                pval = row['p-value']
+                label = '{:.3f}'.format(float(est))
+                if pval !='-':
+                    label += r'\np-val: {:.2f}'.format(float(pval))
+            else:
+                label = str()
             g.edge(rval, lval, label=label, dir='both', style='dashed')
     g.render(filename, view=show)
     return g

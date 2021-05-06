@@ -11,7 +11,7 @@ def data_exogenous(shape: tuple):
     return np.random.normal(size=shape)
 
 
-def generate_data(model: ModelMeans, n: int, drop_lats=False,
+def generate_data(model: ModelMeans, n: int, drop_lats=True,
                   generator_exo=data_exogenous):
     """
     Generate data for a given model with parameters fit.
@@ -26,7 +26,7 @@ def generate_data(model: ModelMeans, n: int, drop_lats=False,
         Number of data samples.
     drop_lats : bool, optional
         If True, latent variables are dropped from the dataset. The default is
-        False.
+        True.
 
     Returns
     -------

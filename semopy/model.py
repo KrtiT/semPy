@@ -1194,7 +1194,7 @@ class Model(ModelBase):
         data = imp.get_fancy()
         return data if not ret_opt else (data, res)
 
-    def predict_factors(self, x: pd.DataFrame):
+    def predict_factors(self, x: pd.DataFrame, center=True):
         """
         Fast factor estimation method via MAP. Requires complete data.
 
@@ -1202,6 +1202,10 @@ class Model(ModelBase):
         ----------
         x : pd.DataFrame
             Complete data of observed variables.
+        center : bool, optional
+            If True, factors are centered before being returned. It might be
+            helpful if x is not centered, whereas Model does not work with
+            intercepts.
 
         Returns
         -------
@@ -1215,8 +1219,7 @@ class Model(ModelBase):
         inners = self.vars['inner']
         obs = self.vars['observed']
         x = x[obs].values.T
-        m = len(self.vars['_output'])
-        lambda_h = self.mx_lambda[:m, :num_lat]
+        lambda_h = self.mx_lambda[:, :num_lat]
         lambda_x = self.mx_lambda[:, num_lat:]
         c = np.linalg.inv(np.identity(self.mx_beta.shape[0]) - self.mx_beta)
         c_1 = c[:num_lat, :]
@@ -1232,7 +1235,10 @@ class Model(ModelBase):
         A_0 = tr_lzh * t @ lambda_h
         L_h = np.linalg.inv(c_1 @ self.mx_psi @ c_1.T)
         H = np.linalg.inv(A_0 / tr_sigma + L_h) @ A
-        return pd.DataFrame(H.T, columns=filter(lambda v: v in lats, inners))
+        H = pd.DataFrame(H.T, columns=filter(lambda v: v in lats, inners))
+        if center:
+            H -= H.mean()
+        return H
 
     '''
     ----------------------------LINEAR ALGEBRA PART---------------------------
@@ -1327,7 +1333,7 @@ class Model(ModelBase):
         log_det_ratio = logdet_sigma - self.cov_logdet
         tr = np.einsum('ij,ji->', self.mx_cov, inv_sigma) - sigma.shape[0]
         loss = tr + log_det_ratio
-        if loss < 0:  # Realistically should never happen.
+        if loss < 0:
             return np.inf
         return loss
 

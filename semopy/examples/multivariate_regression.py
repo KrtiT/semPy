@@ -1,18 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Multivariate regression example model.
-
-True parameter values are 2, 6, -10 (regression parameters):
-    y = 2*x1 + 6*x2 - 10*x3 + eps
-    eps ~ N(0, 1)
-"""
+"""Multivariate (3) regression with 3 independent variables example model."""
 import pandas as pd
 import os
 
-__desc = 'y ~ x1 + x2 + x3'
+__desc = 'y1, y2, y3 ~ x1 + x2 + x3'
 
 __folder = os.path.dirname(os.path.abspath(__file__))
-__filename = '%s/multivariate_data.csv' % __folder
+__filename = '%s/multivariate_regression_data.csv' % __folder
+__filename_p = '%s/multivariate_regression_params.csv' % __folder
 
 
 def get_model():
@@ -39,3 +35,15 @@ def get_data():
 
     """
     return pd.read_csv(__filename, index_col=0)
+
+def get_params():
+    """
+    Retrieve true parameter estimates.
+
+    Returns
+    -------
+    pd.DataFrame
+        Dataset.
+
+    """
+    return pd.read_csv(__filename_p, index_col=0)

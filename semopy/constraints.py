@@ -20,7 +20,7 @@ def parse_constraint(s: str, params: list):
         op = 'ineq'
     elif op == '=':
         op = 'eq'
-    expr.replace('^', '**')
+    expr = expr.replace('^', '**')
     try:
         expr = parse_expr(expr)
     except SyntaxError:

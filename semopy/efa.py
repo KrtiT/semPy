@@ -12,13 +12,14 @@ import pandas as pd
 from .model import Model
 from collections import defaultdict
 from sklearn.cluster import OPTICS
+from sklearn.decomposition import SparsePCA
 from itertools import permutations
 from copy import deepcopy
 from .utils import cor
 
 
 def find_latents(data: pd.DataFrame, min_loadings=2, mx_cor=None,
-                 underscript=''):
+                 underscript='', mode='spca', spca_alpha=1):
     """
     Retrieve number of latent factors and their simple loadings.
 
@@ -36,6 +37,14 @@ def find_latents(data: pd.DataFrame, min_loadings=2, mx_cor=None,
         default is None.
     underscript : str, optional
         Underscript to add after latent factor names. The default is ''.
+    mode : str, optional
+        If 'optics', then a heuristics appraoch based entirely on OPTICS is
+        used. If "spca", then OPTICS is used only to find number of latent
+        factors, and loadings are found using sprase PCA. The default is 
+        'optics'.
+    spca_alpha : float, optional
+        If mode == 'spca', then it is a regularization multiplier. The default
+        is 1.0.
     Returns
     -------
     tuple
@@ -52,12 +61,24 @@ def find_latents(data: pd.DataFrame, min_loadings=2, mx_cor=None,
     dist = np.clip(1.0 - np.abs(mx_cor), 0.0, 1.0)
     clust = OPTICS(min_samples=min_loadings, metric='precomputed').fit(dist)
     loadings = defaultdict(set)
-    for i, label in enumerate(clust.labels_):
-        if label != -1:
-            name = f'eta{label+1}{underscript}'
-        else:
-            name = -1
-        loadings[name].add(names[i])
+    if mode == 'optics':
+        for i, label in enumerate(clust.labels_):
+            if label != -1:
+                name = f'eta{label+1}{underscript}'
+            else:
+                name = -1
+            loadings[name].add(names[i])
+    else:
+        num_lats = set(clust.labels_)
+        num_lats = len(num_lats - {-1})
+        if data is None:
+            raise Exception("For sparse PCA mode data must be provided.")
+        cmp = SparsePCA(num_lats, alpha=spca_alpha).fit(data).components_
+        for i in range(cmp.shape[0]):
+            inds = np.where(abs(cmp[i]) >= 0.05)[0]
+            inds = data.columns[inds]
+            name = f'eta{i+1}{underscript}'
+            loadings[name] = set(inds)
     for lat, inds in loadings.items():
         if lat == -1:
             continue
@@ -100,7 +121,7 @@ def dict_to_desc(d: dict):
 
 
 def finalize_loadings(loadings: dict, data: pd.DataFrame, dist: pd.DataFrame,
-                      pval=0.01, model=Model, base_desc=''):
+                      pval=0.01, model=Model, base_desc='', only_clean=False):
     """
     Test p-values of CFA-like model and find cross-loadings between factors.
 
@@ -118,6 +139,9 @@ def finalize_loadings(loadings: dict, data: pd.DataFrame, dist: pd.DataFrame,
         Class instance. The default is Model.
     base_desc : str, optional
         Text description to append to each model. The default is ''.
+    only_clean : bool, optional
+        If True, then only high p-value loadings are dropped, no
+        intercorrelations are studied. The default is False.
 
     Returns
     -------
@@ -170,6 +194,8 @@ def finalize_loadings(loadings: dict, data: pd.DataFrame, dist: pd.DataFrame,
         return get_loading_significiance(ins, ind, lat)
     loadings = deepcopy(loadings)
     clean_loadings(loadings, base_desc)
+    if only_clean:
+        return loadings
     loadings_comp = deepcopy(loadings)
     try:
         del loadings_comp[-1]
@@ -203,7 +229,8 @@ def finalize_loadings(loadings: dict, data: pd.DataFrame, dist: pd.DataFrame,
 
 
 def explore_cfa_model(data: pd.DataFrame, min_loadings=2, pval=0.01,
-                      model=Model, ret_desc=True):
+                      model=Model, ret_desc=True, mode='spca',
+                      spca_alpha=1.0):
     """
     Retrieve CFA model from data.
 
@@ -220,6 +247,14 @@ def explore_cfa_model(data: pd.DataFrame, min_loadings=2, pval=0.01,
     ret_desc : TYPE, optional
         If True, text-based description is returned. If False, a mapping is
         returned instead. The default is True.
+    mode : str, optional
+        If 'optics', then a heuristics appraoch based entirely on OPTICS is
+        used. If "spca", then OPTICS is used only to find number of latent
+        factors, and loadings are found using sprase PCA. The default is 
+        'optics'.
+    spca_alpha : float, optional
+        If mode == 'spca', then it is a regularization multiplier. The default
+        is 1.0.
 
     Returns
     -------
@@ -227,9 +262,10 @@ def explore_cfa_model(data: pd.DataFrame, min_loadings=2, pval=0.01,
         Model description.
 
     """
-    loadings, dist = find_latents(data, min_loadings=min_loadings)
+    loadings, dist = find_latents(data, min_loadings=min_loadings, mode=mode,
+                                  spca_alpha=spca_alpha)
     loadings = finalize_loadings(loadings, data=data, dist=dist, pval=pval,
-                                 model=Model)
+                                 model=Model, only_clean=mode == 'spca')
     return dict_to_desc(loadings) if ret_desc else loadings
 
 

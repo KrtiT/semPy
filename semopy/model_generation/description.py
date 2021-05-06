@@ -148,13 +148,17 @@ def generate_sem(n_endo: int, n_exo: int, n_cycles: int, p_edge=0.3, cfa=None,
                     res[rv] = list()
                 res[rv].append(v)
     if n_cycles:
-        s_nodes = nodes[1:]
+        n = len(exos)
+        s_nodes = nodes[n:]
         random.shuffle(s_nodes)
         for v in s_nodes:
             i = nodes.index(v)
-            if i > 0:
-                v2 = random.choice(nodes[:i])
-                res[v].append(v2)
+            if i > n:
+                v2 = random.choice(nodes[n:i])
+                if v not in res:
+                    res[v] = [v2]
+                else:
+                    res[v].append(v2)
                 n_cycles -= 1
                 if not n_cycles:
                     break
@@ -169,8 +173,8 @@ def dict_to_desc(d: dict, lats=None):
     ----------
     d : dict
         Dict containing mapping rval->lval (i.e. lval ~ rval).
-    lats : set, optional
-        Iterable that contains names of latent variables (if any).
+    lats : dict, optional
+        Measurement part. The default is None.
 
     Returns
     -------
@@ -183,19 +187,20 @@ def dict_to_desc(d: dict, lats=None):
     d = deepcopy(d)
     to_rem = set()
     if lats:
-        for lat in lats:
+        for lat, inds in lats.items():
             if lat not in d:
                 defines.add(lat)   
             else:
-                lt = d[lat]
-                outs = list(filter(lambda x: x not in d, lt))
-                rvals = ' + '.join(outs)
+                inds = list(filter(lambda x: x not in d, inds))
+                rvals = ' + '.join(inds)
                 s = f'{lat} =~ {rvals}'
                 measurement_part.append(s)
-                for out in outs:
-                    lt.remove(out)
-                if not lt:
-                    to_rem.add(lat)
+                lt = d.get(lat, None)
+                if lt:
+                    for ind in inds:
+                        lt.remove(ind)
+                    if not lt:
+                        to_rem.add(lat)
     for lat in to_rem:
         del d[lat]
     mappings = dict()

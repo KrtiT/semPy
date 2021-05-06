@@ -729,8 +729,7 @@ class ModelGeneralizedEffects(ModelMeans):
         x = x[obs].values.T
         ks = [effect.calc_k(self) for effect in self.effects]
         ds = self.mxs_d
-        m = len(self.vars['_output'])
-        lambda_h = self.mx_lambda[:m, :num_lat]
+        lambda_h = self.mx_lambda[:, :num_lat]
         lambda_x = self.mx_lambda[:, num_lat:]
         c = np.linalg.inv(np.identity(self.mx_beta.shape[0]) - self.mx_beta)
         c_1 = c[:num_lat, :]

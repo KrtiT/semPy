@@ -1,19 +1,18 @@
 # -*- coding: utf-8 -*-
-"""Effect with a pre-defied K matern covariance matrix."""
-from ..utils import calc_zkz
-from .effect_base import EffectBase
-import pandas as pd
-import numpy as np
+"""Effect with a K matern covariance/similiarity matrix."""
+from sklearn.gaussian_process.kernels import Matern
+from .effect_kernel import EffectKernel
 
 
-class EffectMatern(EffectBase):
+class EffectMatern(EffectKernel):
     """
     Matern covariance matrices are useful in spatial analysis.
     
-    This effect introduces no extra parameters other than those that come along
-    the D matrix.
+    If 'active' parameter is False, then this effect introduces no extra
+    parameters other than those that come along the D matrix.
     """
-    def __init__(self, columns: str, k: pd.DataFrame, d_mode='diag'):
+    def __init__(self, columns: str, nu=float('inf'), rho=1.0, 
+                 active=False, d_mode='diag'):
         """
         Instantiate EffectMatern.
 
@@ -22,9 +21,13 @@ class EffectMatern(EffectBase):
         columns : str
             Name of column that corresponds to individuals group id. Should
             match the appropriate row/column in the K dataframe.
-        k : pd.DataFrame
-            K matrix with columns and rows subscribed with accorance to the
-            existing "groups" that encapsulate individual observations.
+        nu : float, optional
+            Num parameter of the matern kernel. The default is inf.
+        rho : float, optional
+            Rho parameter of the matern kernel, i.e. length. The default is 1.
+        active : bool, optional
+            If True, then rho is an active parameter that is optimized.
+            Otherwise, it is fixed. The default is False.
         d_mode : str
             Mode of D matrix. If "diag", then D has unique params on the
             diagonal. If "full", then D is fully parametrised. If
@@ -36,44 +39,7 @@ class EffectMatern(EffectBase):
         None.
 
         """
-        
-        super().__init__(columns, d_mode=d_mode)
-        self.k = k
-
-    def load(self, i, model, data, clean_start=True, **kwargs):
-        """
-        Called by model new dataset is loaded.
-        
-        Here, Effects are configured from the data. self.parameters must be
-        initialised after invoking this method.
-        Parameters
-        ----------
-        order : int
-            Identificator of effect in model. It is just an order of the effect
-            among other effects as specified by user.
-        model : ModelGeneralizedEffects
-            Instance of ModelGeneralizedEffects that calls this method.
-        data : pd.DataFrame
-            Dataset that is being loaded. Should contain self.columns.
-        clean_start : bool, optional
-            If True, then parameters are (re)initialized. The model will use
-            the ones already present in self.parameters vector otherwise. The
-            default is True.
-
-        Returns
-        -------
-        None.
-
-        """
-        super().load(i, model, data, clean_start, **kwargs)
-        if clean_start:
-            self.parameters = np.array([])
-        mx_k = kwargs.get(f'k_{self.order+1}', self.k)
-        c = data[self.columns[0]]
-        self.mx_k = calc_zkz(c, mx_k)
-
-    def calc_k(self, model):
-        return self.mx_k
-
-    def calc_k_grad(self, model):
-        return []
+        p = {'length_scale': rho,
+             'nu': nu}
+        super().__init__(columns, kernel=Matern, params=p, active=active,
+                         d_mode=d_mode)

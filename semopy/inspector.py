@@ -182,11 +182,14 @@ def inspect_list(model: Model, information='expected', std_est=False,
         DataFrame with parameters information.
 
     """
-    if not hasattr(model, 'last_result'):
-        raise Exception('Can''t inspect model parameters estimates as they'
-                        ' don''t exist')
     res = list()
-    vals = model.param_vals
+    try:
+        vals = model.param_vals
+    except AttributeError:
+        vals = ['Not estimated'] * len(model.parameters)
+        information = None
+        std_est = False
+        se_robust = False
     if std_est:
         sigma, (_, c) = model.calc_sigma()
         w_cov = c @ model.mx_psi @ c.T
@@ -411,6 +414,34 @@ def inspect_list(model: Model, information='expected', std_est=False,
                         res.append((a, op, b, val, val_est, std, zs, pval))
                     else:
                         res.append((a, op, b, val, std, zs, pval))
+    # D_(i) -- Variance of random effects matrix in ModelGeneralizedEffects
+    i = 1
+    while hasattr(model, f'mx_d{i}'):
+        mx = getattr(model, f'mx_d{i}')
+        names = getattr(model, f'names_d{i}')
+        op = f'RF{i}'
+        for name, param in model.parameters.items():
+            for loc in param.locations:
+                if loc.matrix is mx:
+                    ind = loc.indices
+                    a, b = names[0][ind[0]], names[1][ind[1]]
+                    if param.active:
+                        i = keys_active.index(name)
+                        val = vals[i]
+                        std = se[i]
+                        zs = zscores[i]
+                        pval = pvals[i]
+                    else:
+                        val = param.start
+                        std = '-'
+                        zs = '-'
+                        pval = '-'
+                    if std_est:
+                        val_est = val / std_full[ind[0]] / std_full[ind[1]]
+                        res.append((a, op, b, val, val_est, std, zs, pval))
+                    else:
+                        res.append((a, op, b, val, std, zs, pval))
+        i += 1
     # v -- Variance of random effects variable
     if hasattr(model, 'mx_v'):
         mx = model.mx_v

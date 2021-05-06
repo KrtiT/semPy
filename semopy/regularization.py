@@ -5,7 +5,7 @@ from functools import partial
 import numpy as np
 
 
-def create_regularization(model, regularization='l1-smooth', c=1.0, alpha=None,
+def create_regularization(model, regularization='l1-thresh', c=1.0, alpha=None,
                           param_names=None, mx_names=None):
     """
     Build additive regularization terms for loss funtions of SEM models.
@@ -22,7 +22,7 @@ def create_regularization(model, regularization='l1-smooth', c=1.0, alpha=None,
     model : Model
         Model reference.
     regularization : str, optional
-        Type of of regularization to use. The default is 'l1-smooth'.
+        Type of of regularization to use. The default is 'l1-thresh'.
     c : TYPE, optional
         Regularization constant. The default is 1.0.
     alpha : float, optional
@@ -30,7 +30,7 @@ def create_regularization(model, regularization='l1-smooth', c=1.0, alpha=None,
         it's value is, the more accurate is the approximation. If
         regularization is "l1-thresh", then its a soft thresholding operator
         parameter: the closer to zero it is, the more accurate is the operator.
-        The default is 1e6 for "l1-smooth" and 1e-6 for "l1-thresh".
+        The default is 1e-6.
     param_names : iterable, optional
         Parameter names to regularize. The default is None.
     mx_names : iterable, optional
@@ -48,21 +48,25 @@ def create_regularization(model, regularization='l1-smooth', c=1.0, alpha=None,
         param_names = set()
     if mx_names is None:
         mx_names = set()
-    mx_names = {getattr(model, 'mx_{}'.format(mx.lower())) for mx in mx_names}
+    mx_names = [id(getattr(model, 'mx_{}'.format(mx.lower())))
+                for mx in mx_names]
     i = 0
-    for p in model.parameters:
+    for name, p in model.parameters.items():
         if not p.active:
             continue
-        if p.name in param_names:
+        if name in param_names:
             inds.append(i)
         else:
             t = False
             for loc in p.locations:
-                if loc.matrix in mx_names:
-                    t = True
+                try:
+                    if id(loc.matrix) in mx_names:
+                        t = True
+                        break
+                except ValueError:
+                    pass
             if t:
                 inds.append(i)
-                break
         i += 1
     inds = np.array(inds, dtype=np.int)
     if regularization == 'l1-naive':
@@ -71,6 +75,8 @@ def create_regularization(model, regularization='l1-smooth', c=1.0, alpha=None,
     elif regularization == 'l1-smooth':
         if alpha is None:
             alpha = 1e6
+        else:
+            alpha = 1 / alpha
         obj = partial(l1_smooth, c=c, alpha=alpha, inds=inds)
         grad = partial(l1_smooth_grad, c=c, alpha=alpha, inds=inds)
     elif regularization == 'l1-thresh':
@@ -104,7 +110,8 @@ def l1_smooth(x: np.ndarray, c: float, alpha: float, inds: np.ndarray):
     t = alpha * x[inds]
     e_m = np.exp(-t)
     e_p = np.exp(t)
-    return (np.log(e_p + 1) + np.log(e_m + 1)) / alpha
+    r= (np.log(e_p + 1) + np.log(e_m + 1)).sum() / alpha
+    return r
 
 
 def l1_smooth_grad(x: np.ndarray, c: float, alpha: float, inds: np.ndarray):

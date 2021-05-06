@@ -146,9 +146,7 @@ def chol_inv(x: np.array):
     if info:
         raise np.linalg.LinAlgError
     lapack.dpotri(c, overwrite_c=1)
-    c += c.T
-    np.fill_diagonal(c, c.diagonal() / 2)
-    return c
+    return c + c.T - np.diag(c.diagonal())
 
 
 def chol_inv2(x: np.ndarray):
@@ -176,11 +174,10 @@ def chol_inv2(x: np.ndarray):
     c, info = lapack.dpotrf(x)
     if info:
         raise np.linalg.LinAlgError
-    logdet = 2 * np.sum(np.log(c.diagonal()))
+    d = c.diagonal()
+    logdet = 2 * np.sum(np.log(d))
     lapack.dpotri(c, overwrite_c=1)
-    c += c.T
-    np.fill_diagonal(c, c.diagonal() / 2)
-    return c, logdet
+    return c + c.T - np.diag(d), logdet
 
 
 def compare_results(model, true: pd.DataFrame, error='relative',
@@ -212,7 +209,7 @@ def compare_results(model, true: pd.DataFrame, error='relative',
         ModelMeans/ModelEffects that lack variance parameter. The default is
         False.
     return_table : bool, optional
-        If True, then pd.DataFrame table is returned instead of list.
+        If True, then pd.DataFrame table is returned instead of nplist.
 
     Raises
     ------
@@ -225,7 +222,10 @@ def compare_results(model, true: pd.DataFrame, error='relative',
         List of errors.
 
     """
-    ins = model.inspect(information=None)
+    if type(model) is not pd.DataFrame:
+        ins = model.inspect(information=None)
+    else:
+        ins = model
     errs = list()
     if return_table:
         ops = list()

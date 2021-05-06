@@ -299,22 +299,23 @@ class ModelMeans(Model):
         if len(self.mx_g.shape) != 2:
             self.mx_g = self.mx_g[np.newaxis, :]
         g = self.mx_g
-        try:
-            s = np.identity(g.shape[1]) - g.T @ chol_inv(g @ g.T) @ g
-        except ValueError:
-            s = np.identity(g.shape[1]) - g.T @ g
-            print('blya')
-        d, q = np.linalg.eigh(s)
-        rank_dec = 0
-        for i in d:
-            if abs(i) < 1e-8:
-                rank_dec += 1
-            else:
-                break
-        d = np.diag(d)[rank_dec:, :]
-        self.mx_s = d @ q.T
-        self.mx_data_transformed = self.mx_s @ self.mx_data
-        self.mx_data_square = self.mx_data_transformed.T @ self.mx_data_transformed
+        if self.calc_fim == self.calc_fim_reml:
+            try:
+                s = np.identity(g.shape[1]) - g.T @ chol_inv(g @ g.T) @ g
+            except ValueError:
+                s = np.identity(g.shape[1]) - g.T @ g
+            d, q = np.linalg.eigh(s)
+            rank_dec = 0
+            for i in d:
+                if abs(i) < 1e-8:
+                    rank_dec += 1
+                else:
+                    break
+            d = np.diag(d)[rank_dec:, :]
+            self.mx_s = d @ q.T
+            self.mx_data_transformed = self.mx_s @ self.mx_data
+            self.mx_data_square = self.mx_data_transformed.T @\
+                                  self.mx_data_transformed
         self.load_cov(covariance.loc[obs, obs]
                       if covariance is not None else cov(self.mx_data))
 
@@ -823,8 +824,7 @@ class ModelMeans(Model):
         inners = self.vars['inner']
         obs = self.vars['observed']
         x = x[obs].values.T
-        m = len(self.vars['_output'])
-        lambda_h = self.mx_lambda[:m, :num_lat]
+        lambda_h = self.mx_lambda[:, :num_lat]
         lambda_x = self.mx_lambda[:, num_lat:]
         c = np.linalg.inv(np.identity(self.mx_beta.shape[0]) - self.mx_beta)
         c_1 = c[:num_lat, :]
