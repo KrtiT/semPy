@@ -9,7 +9,7 @@ setup(
                        		    'statsmodels'],
       include_package_data=True,
       package_data={'': ['examples/*.csv', 'examples/*.npy', 'report/*.html', 'report/*.txt',
-                                        'report/css/*.css', 'report/js/*.js']},
+					'examples/*.txt', 'report/css/*.css', 'report/js/*.js']},
       name="semopy",
       version="2.2.1",
       author="Georgy Meshcheryakov",
