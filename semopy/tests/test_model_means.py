@@ -36,7 +36,8 @@ for j in range(1, p + 1):
     d['eta2'].append(y_names[-1])
 desc = '\n'.join(f"{eta} =~ {' + '.join(ys)}" for eta, ys in d.items())
 desc += '\neta2 ~ eta1'
-params = pd.DataFrame.from_records(res, columns=['lval', 'op', 'rval', 'est'])
+params = pd.DataFrame.from_records(res, columns=['lval', 'op', 'rval',
+                                                 'Estimate'])
 data = pd.DataFrame(np.append(np.append(y, eta1, axis=1), eta2, axis=1),
                     columns=y_names + ['eta1', 'eta2'])
 
@@ -56,6 +57,8 @@ class TestModelMeans(unittest.TestCase):
         for _, row in true.iterrows():
             t = (ins['op'] == row['op']) & (ins['lval'] == row['lval']) &\
                 (ins['rval'] == row['rval'])
+            if sum(t) == 0:
+                continue
             t = ins[t]
             try:
                 assert t['p-value'].values[0] < 0.05,\
@@ -63,7 +66,7 @@ class TestModelMeans(unittest.TestCase):
             except TypeError:
                 pass
             est = t['Estimate'].values[0]
-            errs.append(abs((est - row['est']) / row['est']))
+            errs.append(abs((est - row['Estimate']) / row['Estimate']))
         err = np.mean(errs)
         assert err < 0.1, \
                f"Parameter estimation quality is too low: {err} [{obj}]"
@@ -71,22 +74,14 @@ class TestModelMeans(unittest.TestCase):
     def test_univariate_regression(self):
         desc = univariate_regression.get_model()
         data = univariate_regression.get_data()
-        data['y'] += 3
-        true = pd.DataFrame([['y', '~', 'x', 5.0],
-                             ['y', '~', '1', 3.0]],
-                            columns=['lval', 'op', 'rval', 'est'])
+        true = univariate_regression.get_params()
         self.evaluate(desc, data, true, 'ML')
         self.evaluate(desc, data, true, 'REML')
 
     def test_multivariate_regression(self):
         desc = multivariate_regression.get_model()
         data = multivariate_regression.get_data()
-        data['y'] += 4
-        true = pd.DataFrame([['y', '~', 'x1', 2.0],
-                             ['y', '~', 'x2', 6.0],
-                             ['y', '~', 'x3', -10.0],
-                             ['y', '~', '1', 4.0]],
-                            columns=['lval', 'op', 'rval', 'est'])
+        true = multivariate_regression.get_params()
         self.evaluate(desc, data, true, 'ML')
         self.evaluate(desc, data, true, 'REML')
 
