@@ -162,6 +162,8 @@ class ModelEffects(ModelMeans):
             data = data.copy()
         if group is None:
             raise Exception('Group name (column) must be provided.')
+        self.group = group
+        self.group_data = data[group].values.reshape((1, -1))
         obs = self.vars['observed']
         exo = self.vars['observed_exogenous']
         if self.intercepts:
@@ -506,6 +508,7 @@ class ModelEffects(ModelMeans):
         self.mx_data = data[obs].values
         self.n_samples, self.n_obs = self.mx_data.shape
         self.num_m = len(set(self.vars['observed']) - self.vars['latent'])
+        self.passed_k = k
         if type(k) is tuple:
             self.mx_zkz, self.mx_sk, self.mx_q = k
             self._ktuple = True

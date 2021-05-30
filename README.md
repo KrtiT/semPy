@@ -9,10 +9,12 @@
   - Estimate model's parameters using a variety of objective functions
   - Estimate models with population structure via random effects
   - Restricted Maximum Likelihood
+  - Integration with gaussian processes/mixture models to tackle huge variety of phenomena
   - Calculate numerous statistics and fit indices
   - Estimate model's parameters in presence of ordinal variables
   - A vast number of settings to fit a researcher's needs
   - Fast and accurate
+  - Automatically create fancy HTML reports
 
 ## Installation
 **semopy** is available at PyPi and can be installed by typing the following line into terminal:

@@ -49,10 +49,12 @@ class TestStandardErrors(unittest.TestCase):
         ins = ins[ins['op'] == '~'].sort_values(['lval', 'rval'], 0)
         se.append(ins['Std. Err'].values)
         for a, b in combinations(se, 2):
-            assert np.max(np.abs(a - b) / b) < 1e-1, "Standard errors diverge."
+            t = (a < 1e-4) & (b < 1e-4)
+            m = np.max(np.abs(a - b) / b * t)
+            assert m < 1e-2, "Standard errors diverge {:.3f}.".format(m)
 
     def test_multivariate_regression(self):
         desc = multivariate_regression.get_model()
         data = multivariate_regression.get_data()
-        data['group'] = data.index
+        data['group'] = 1
         self.evaluate(desc, data)

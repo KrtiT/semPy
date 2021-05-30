@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Statistic and fit indices."""
+from .utils import duplication_matrix
 from scipy.stats import norm, chi2
 from collections import namedtuple
 from .optimizer import Optimizer
+from .model_generalized_effects import ModelGeneralizedEffects
+from .model_effects import ModelEffects
+from .model_means import ModelMeans
 from .model import Model
 import pandas as pd
 import numpy as np
@@ -47,13 +51,27 @@ def get_baseline_model(model, data=None):
             mod.load(data)
         return mod
     desc = model.description
-    mod = Model(desc, baseline=True)
+    tp = type(model)
+    tp_name = tp.__name__
+    if tp_name not in ('Model', ):
+        mod = tp(desc, baseline=True, intercepts=model.intercepts)
+    else:
+        mod = tp(desc, baseline=True)
     try:
         if not data:
             if hasattr(model, 'mx_data'):
-                data = pd.DataFrame(data=model.mx_data,
-                                    columns=model.vars['observed'])
-                mod.load(data)
+                mx = model.mx_data
+                vs = model.vars['observed']
+                if hasattr(model, 'mx_g'):
+                    mx = np.append(mx, model.mx_g.T, axis=1)
+                    vs = vs + model.vars['observed_exogenous']
+                data = pd.DataFrame(data=mx, columns=vs)
+                if hasattr(model, 'group'):
+                    data[model.group] = model.group_data[0, :]
+                if tp_name in ('ModelEffects',):
+                    mod.load(data, group=model.group, k=model.passed_k)
+                else:
+                    mod.load(data)
             else:
                 data = pd.DataFrame(data=model.mx_cov,
                                     index=model.vars['observed'],
@@ -80,7 +98,16 @@ def __get_chi2_base(model):
 
     """
     mod_base = get_baseline_model(model)
-    mod_base.fit(obj=model.last_result.name_obj)
+    obj = model.last_result.name_obj
+    if type(mod_base).__name__ in ('ModelEffects', 'ModelGeneralizedEffects'):
+        if obj == 'REML2':
+            obj = 'REML'
+        elif obj == 'FIML':
+            obj = 'ML'
+    elif type(mod_base).__name__ in ('ModelMeans', ):
+        if obj == 'FIML':
+            obj = 'ML'
+    mod_base.fit(obj=obj)
     chi2_base = calc_chi2(mod_base)[0]
     return chi2_base, calc_dof(mod_base)
 
@@ -280,6 +307,51 @@ def calc_chi2(model, dof=None):
     if dof is None:
         dof = calc_dof(model)
     stat = model.n_samples * model.last_result.fun
+    return stat, 1 - chi2.cdf(stat, dof)
+
+
+def calc_chi2_sb(model, stat=None, dof=None):
+    """
+    Calculate scaled (Satorra-Bentler) chi2.
+
+    Parameters
+    ----------
+    model : Model
+        Model.
+    stat : float, optional
+        chi2 statistic. The default is None.
+    dof : int, optional
+        Degrees of freedom. The default is None.
+
+    Returns
+    -------
+    float
+        SB chi2.
+    float
+        p-value.
+
+    """
+    if stat is None:
+        stat = calc_chi2(model)[0]
+    if dof is None:
+        dof = calc_dof(model)
+    sigma, (m, c) = model.calc_sigma()
+    inds = np.triu_indices_from(sigma)
+    grad = np.array([g[inds].flatten(order='F')
+                    for g in model.calc_sigma_grad(m, c)]).T
+    sigma_inv = np.linalg.inv(sigma)
+    k = np.kron(sigma_inv, sigma_inv)
+    dup = duplication_matrix(sigma.shape[0])
+    w = dup.T @ k @ dup / 2
+    w = np.linalg.inv(w)
+    t = w @ grad
+    u = w - t @ np.linalg.inv(grad.T @ t) @ t.T
+    if hasattr(model, 'mx_w'):
+        c = np.einsum('ij,ji->', u, model.mx_w) / dof
+    else:
+        c = np.trace(u @ np.linalg.inv(w)) / dof
+        return t, grad, w, u
+    stat /= c
     return stat, 1 - chi2.cdf(stat, dof)
 
 

@@ -507,4 +507,6 @@ def _set_values(params: dict, ref: np.ndarray, start=True):
                     mx[loc.indices] = param.start
                 else:
                     mx[loc.indices] = name
+                if loc.symmetric:
+                    mx[loc.indices[::-1]] = mx[loc.indices]
     return mx

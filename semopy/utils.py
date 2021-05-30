@@ -4,6 +4,32 @@ import pandas as pd
 import numpy as np
 
 
+def duplication_matrix(n: int):
+    """
+    Create duplication matrix D such that D vech(X) = vec(X).
+
+    Parameters
+    ----------
+    n : int
+        Size n of n x n matrix X.
+
+    Returns
+    -------
+    Duplication matrix D.
+
+    """
+    m = n * n
+    k = (n + 1) * n // 2
+    d = np.zeros((m, k))
+    for i in range(n):
+        for j in range(i + 1):
+            a1 =  i * n + j
+            a2 =  j * n + i
+            b = j * n + i - j * (j + 1) // 2
+            d[a1, b] = 1
+            d[a2, b] = 1
+    return d
+
 def kron_identity(mx: np.ndarray, sz: int, back=False):
     """
     Calculate Kronecker product with identity matrix.

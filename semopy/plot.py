@@ -14,7 +14,7 @@ except ModuleNotFoundError:
 
 def semplot(mod: Model, filename: str, inspection=None, plot_covs=False,
             plot_exos=True, images=None, engine='dot', latshape='circle',
-            plot_ests=True, show=False):
+            plot_ests=True, std_ests=False, show=False):
     """
     Draw a SEM diagram.
 
@@ -45,6 +45,9 @@ def semplot(mod: Model, filename: str, inspection=None, plot_covs=False,
     plot_ests : bool, optional
         If True, then estimates are also plotted on the graph. The default is
         True.
+    std_ests : bool, optional
+        If True and plot_ests is True, then standardized values are plotted
+        instead. The default is False.
     show : bool, optional
         If True, the 
 
@@ -60,9 +63,11 @@ def semplot(mod: Model, filename: str, inspection=None, plot_covs=False,
     if not hasattr(mod, 'last_result'):
         plot_ests = False
     if inspection is None:
-        inspection = mod.inspect()
+        inspection = mod.inspect(std_est=std_ests)
     if images is None:
         images = dict()
+    if std_ests:
+        inspection['Estimate'] = inspection['Est. Std']
     t = filename.split('.')
     filename, ext = '.'.join(t[:-1]), t[-1]
     g = graphviz.Digraph('G', format=ext, engine=engine)
