@@ -306,7 +306,10 @@ def calc_chi2(model, dof=None):
     """
     if dof is None:
         dof = calc_dof(model)
-    stat = model.n_samples * model.last_result.fun
+    if model.last_result.name_obj == 'FIML':
+        stat = model.last_result.fun / model.n_samples
+    else:
+        stat = model.n_samples * model.last_result.fun
     return stat, 1 - chi2.cdf(stat, dof)
 
 
