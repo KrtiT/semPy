@@ -10,6 +10,16 @@
     <link href="./css/bootstrap.min.css" rel="stylesheet">
     <link href="./css/semopy.css" rel="stylesheet">
     <script src="./js/bootstrap.min.js"></script>
+    <style>nav .nav-link {{
+    color: black;
+}}
+nav .nav-link:hover {{
+    color: grey;
+}}
+nav .nav-link.active {{
+    color: grey;
+}}</style>
+
 
   </head>
   <body>
@@ -24,7 +34,7 @@
   <div class="row">
     <div class="col-sm-2">
      <br>
-     <div class='sticky-top'  style="border-right: 2px solid #333;min-height: 90%;height: 90%;">
+     <div class="sticky-top">
       <nav class="nav flex-column" >
         <a class="p-1 nav-link active" id="model_m" href="#model">Model information</a>
         <a class="p-1 nav-link" id="estimates_m" href="#estimates">Estimates</a>
@@ -33,7 +43,7 @@
       </nav>
      </div>
     </div>
-    <div class="col-sm-9">
+    <div class="col-sm-9" style="border-left: 1px solid">
      <br>
 	<a class="anchor" id="model"></a>
 	<h3>Model information</h3>
@@ -74,7 +84,9 @@
 		
 	<a class="anchor" id="estimates"></a>
 	<h3>Estimates</h3>
+	<div style="font-family:monospace">
 	{Estimates}
+	</div>
 	<br>
 	<div class="accordion" id="accordion3">
 	<div class="accordion-item">
@@ -139,7 +151,6 @@ window.addEventListener("scroll", function() {{
   }}
 }});
 }});
-
 </script>
 
 </html>

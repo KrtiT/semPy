@@ -120,7 +120,7 @@ def report(model, name: str, path='', std_est=False, se_robust=False,
     else:
         t = pt.format('', '', 'Estimate', 'P-value')
     ests = '<div class="row">' + t + '</div>'
-    ptt = "<div class='col-sm-1'></div><div class='col-sm-1'>{}</div>"\
+    ptt = "<div class='col-sm-2 text-end'>{}</div>"\
           "<div class='col-sm-2'>{}</div><div class='col-sm-1'>{}</div>"\
           "<div class='col-sm-1'>{}</div>"
     if std_est:
@@ -201,13 +201,35 @@ def report(model, name: str, path='', std_est=False, se_robust=False,
                     t = ptt.format('', rval, est, est_std, pval)
                     ests += '<div class="row">' + t + '</div>'
         else:
-            ests += pt.format('Covariances:', '', '', '')
+            t = pt.format('Covariances:', '', '', '')
+            ests += '<div class="row">' + t + '</div>'
             for lval, its in cov.items():
                 t = ptt.format(lval + ' ~', '', '', '')
                 ests += '<div class="row">' + t + '</div>'
                 for (rval, est, pval) in its:
                     t = ptt.format('', rval, est, pval)
                     ests += '<div class="row">' + t + '</div>'
+    if other:
+        if std_est:
+            t = pt.format('Other operators:', '', '', '', '')
+        else:
+            t = pt.format('Other operators:', '', '', '')
+        ests += '<div class="row">' + t + '</div>'
+        for op, rvals in other.items():
+            if std_est:
+                for lval, its in rvals.items():
+                    t = ptt.format(lval + f' {op}', '', '', '', '')
+                    ests += '<div class="row">' + t + '</div>'
+                    for (rval, est, est_std, pval) in its:
+                        t = ptt.format('', rval, est, est_std, pval)
+                        ests += '<div class="row">' + t + '</div>'
+            else:
+                for lval, its in rvals.items():
+                    t = ptt.format(lval + f' {op}', '', '', '')
+                    ests += '<div class="row">' + t + '</div>'
+                    for (rval, est, pval) in its:
+                        t = ptt.format('', rval, est, pval)
+                        ests += '<div class="row">' + t + '</div>'
     path = os.path.join(path, name)
     if not os.path.isdir(path):
         os.mkdir(path)
