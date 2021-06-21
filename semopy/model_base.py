@@ -72,7 +72,7 @@ class ModelBase(ABC):
         Returns
         -------
         None.
-False
+
         """
         self.vars = dict()
         latents = set()

@@ -133,6 +133,7 @@ def parse_desc(desc: str):
         Mapping operationName->list[Operation type].
 
     """
+    desc = desc.replace(chr(8764), chr(126))
     effects = defaultdict(lambda: defaultdict(dict))
     operations = defaultdict(list)
     for line in desc.splitlines():
