@@ -157,7 +157,7 @@ def inspect_matrices(model: Model, what='est'):
 
 
 def inspect_list(model: Model, information='expected', std_est=False,
-                 se_robust=False):
+                 se_robust=False, index_names=False):
     """
     Get a pandas DataFrame containin a view of parameters estimates.
 
@@ -175,6 +175,8 @@ def inspect_list(model: Model, information='expected', std_est=False,
     se_robust : bool, optional
         If True, then robust SE are computed instead. Robustness here means
         that MLR-esque sandwich correction is applied. The default is False.
+    index_names : bool, optional
+        If True, then the returned DataFrame has parameter names as indices.
 
     Returns
     -------
@@ -206,6 +208,7 @@ def inspect_list(model: Model, information='expected', std_est=False,
         zscores = pvals = se
     keys = list(model.parameters.keys())
     keys_active = [k for k in keys if model.parameters[k].active]
+    param_names = list()
     # Beta
     if hasattr(model, 'mx_beta'):
         mx = model.mx_beta
@@ -214,6 +217,7 @@ def inspect_list(model: Model, information='expected', std_est=False,
         for name, param in model.parameters.items():
             for loc in param.locations:
                 if loc.matrix is mx:
+                    param_names.append(name)
                     ind = loc.indices
                     a, b = names[0][ind[0]], names[1][ind[1]]
                     if param.active:
@@ -242,6 +246,7 @@ def inspect_list(model: Model, information='expected', std_est=False,
         for name, param in model.parameters.items():
             for loc in param.locations:
                 if loc.matrix is mx:
+                    param_names.append(name)
                     ind = loc.indices
                     a, b = names[0][ind[0]], names[1][ind[1]]
                     if param.active:
@@ -276,6 +281,7 @@ def inspect_list(model: Model, information='expected', std_est=False,
         for name, param in model.parameters.items():
             for loc in param.locations:
                 if loc.matrix is mx:
+                    param_names.append(name)
                     ind = loc.indices
                     a, b = names[0][ind[0]], names[1][ind[1]]
                     if param.active:
@@ -310,6 +316,7 @@ def inspect_list(model: Model, information='expected', std_est=False,
         for name, param in model.parameters.items():
             for loc in param.locations:
                 if loc.matrix is mx:
+                    param_names.append(name)
                     ind = loc.indices
                     a, b = names[0][ind[0]], names[1][ind[1]]
                     if param.active:
@@ -356,6 +363,7 @@ def inspect_list(model: Model, information='expected', std_est=False,
                         std = '-'
                         zs = '-'
                         pval = '-'
+                    param_names.append(name)
                     if std_est:
                         val_std = val / stds[ind[0]] / stds[ind[1]]
                         res.append((a, op, b, val, val_std, std, zs, pval))
@@ -369,6 +377,7 @@ def inspect_list(model: Model, information='expected', std_est=False,
         for name, param in model.parameters.items():
             for loc in param.locations:
                 if loc.matrix is mx:
+                    param_names.append(name)
                     ind = loc.indices
                     a, b = names[0][ind[0]], names[1][ind[1]]
                     if param.active:
@@ -396,6 +405,7 @@ def inspect_list(model: Model, information='expected', std_est=False,
         for name, param in model.parameters.items():
             for loc in param.locations:
                 if loc.matrix is mx:
+                    param_names.append(name)
                     ind = loc.indices
                     a, b = names[0][ind[0]], names[1][ind[1]]
                     if param.active:
@@ -423,6 +433,7 @@ def inspect_list(model: Model, information='expected', std_est=False,
         for name, param in model.parameters.items():
             for loc in param.locations:
                 if loc.matrix is mx:
+                    param_names.append(name)
                     ind = loc.indices
                     a, b = names[0][ind[0]], names[1][ind[1]]
                     if param.active:
@@ -450,6 +461,7 @@ def inspect_list(model: Model, information='expected', std_est=False,
         for name, param in model.parameters.items():
             for loc in param.locations:
                 if loc.matrix is mx:
+                    param_names.append(name)
                     ind = loc.indices
                     a, b = names[0][ind[0]], names[1][ind[1]]
                     if param.active:
@@ -475,6 +487,7 @@ def inspect_list(model: Model, information='expected', std_est=False,
         for name, param in model.parameters.items():
             for loc in param.locations:
                 if loc.matrix is mx:
+                    param_names.append(name)
                     ind = loc.indices
                     a, b = names[0][ind[0]], names[1][ind[1]]
                     if param.active:
@@ -494,8 +507,11 @@ def inspect_list(model: Model, information='expected', std_est=False,
                 'z-value', 'p-value']
     else:
         cols = ['lval', 'op', 'rval', 'Estimate', 'Std. Err', 'z-value',
-                'p-value']
-    return pd.DataFrame(res, columns=cols)
+                'p-value']        
+    res = pd.DataFrame(res, columns=cols)
+    if index_names:
+        res.index = param_names
+    return res
 
 
 def _set_values(params: dict, ref: np.ndarray, start=True):

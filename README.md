@@ -1,5 +1,5 @@
 # semopy
-[GO TO SEMOPY WEBSITE](https://semopy.com)
+[Visit our website for a detailed introduction](https://semopy.com)
 
 
 **semopy** is a Python package that includes numerous Structural Equation Modelling (SEM) techniques. 
