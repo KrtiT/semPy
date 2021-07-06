@@ -368,18 +368,22 @@ def calc_zkz(groups: pd.Series, k: pd.DataFrame, p_names=None,
     return zkz
 
 
-def calc_degenerate_ml(model, variables: set, x=None):
+def calc_restricted_ml(model, variables: set, x=None,
+                       exclude=False):
     """
-    Calculate ML with degenerate sigma.
+    Calculate ML with restricted sigma.
 
     Parameters
     ----------
     model : Model
         DESCRIPTION.
     variables : set
-        List/set of variable to exclude from Sigma.
+        List/set of variable to be included in Sigma.
     x : np.ndarray, optional
         Paremters vector. The default is None.
+    exclude : bool, optional
+        If True, then variables are a list to be excluded, not included. The
+        default is False.
 
     Returns
     -------
@@ -393,7 +397,10 @@ def calc_degenerate_ml(model, variables: set, x=None):
         raise Exception('ModelMeans or ModelEffects degenerate ML is not '
                         'supported.')
     obs = model.vars['observed']
-    inds = [obs.index(v) for v in variables]
+    if exclude:
+        inds = [obs.index(v) for v in variables]
+    else:
+        inds = [i for i, v in enumerate(obs) if v not in variables]
     def deg_sigma():
         sigma, (m, c) = true_sigma()
         sigma = delete_mx(sigma, inds)
