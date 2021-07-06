@@ -47,7 +47,8 @@ class Model(ModelBase):
         bound: tuple
         locations: list
 
-    def __init__(self, description: str, mimic_lavaan=False, baseline=False):
+    def __init__(self, description: str, mimic_lavaan=False, baseline=False,
+                 cov_diag=False):
         """
         Instantiate Model without mean-structure.
 
@@ -55,17 +56,18 @@ class Model(ModelBase):
         ----------
         description : str
             Model description in semopy syntax.
-
         mimic_lavaan: bool
             If True, output variables are correlated and not conceptually
             identical to indicators. lavaan treats them that way, but it's
             less computationally effective. The default is False.
-
         baseline : bool
             If True, the model will be set to baseline model.
             Baseline model here is an independence model where all variables
             are considered to be independent with zero covariance. Only
             variances are estimated. The default is False.
+        cov_diag : bool
+            If cov_diag is True, then there are no covariances parametrised
+            unless explicitly specified. The default is False.
 
         Returns
         -------
@@ -78,6 +80,7 @@ class Model(ModelBase):
         self.n_param_cov = 0
         self.baseline = baseline
         self.constraints = list()
+        self.cov_diag = cov_diag
         dops = self.dict_operations
         dops[self.symb_starting_values] = self.operation_start
         dops[self.symb_bound_parameters] = self.operation_bound
@@ -210,17 +213,18 @@ class Model(ModelBase):
         for v in obs_exo:
             if v not in cov[v]:
                 cov[v][v] = self.symb_starting_values
-        for a, b in combinations(obs_exo, 2):
-            if a not in cov[b] and b not in cov[a]:
-                cov[a][b] = self.symb_starting_values
         for v in chain(self.vars['endogenous'], self.vars['latent']):
             if v not in cov[v]:
                 cov[v][v] = None
-        exo_lat = self.vars['exogenous'] & self.vars['latent']
-        for a, b in chain(combinations(self.vars['output'], 2),
-                          combinations(exo_lat, 2)):
-            if b not in cov[a] and a not in cov[b]:
-                cov[a][b] = None
+        if not self.cov_diag:
+            for a, b in combinations(obs_exo, 2):
+                if a not in cov[b] and b not in cov[a]:
+                    cov[a][b] = self.symb_starting_values
+            exo_lat = self.vars['exogenous'] & self.vars['latent']
+            for a, b in chain(combinations(self.vars['output'], 2),
+                              combinations(exo_lat, 2)):
+                if b not in cov[a] and a not in cov[b]:
+                    cov[a][b] = None
 
     def finalize_variable_classification(self, effects: dict):
         """

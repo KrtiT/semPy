@@ -22,7 +22,7 @@ class ModelGeneralizedEffects(ModelMeans):
     """
 
     def __init__(self, description: str, effects: tuple, mimic_lavaan=False,
-                 baseline=False, intercepts=True):
+                 baseline=False, cov_diag=False, intercepts=True):
         """
         Instantiate Generalized Random Effects SEM model.
 
@@ -41,6 +41,9 @@ class ModelGeneralizedEffects(ModelMeans):
             Baseline model here is an independence model where all variables
             are considered to be independent with zero covariance. Only
             variances are estimated. The default is False.
+        cov_diag : bool
+            If cov_diag is True, then there are no covariances parametrised
+            unless explicitly specified. The default is False.
         intercepts: bool
             If True, intercepts are also modeled. Intercept terms can be
             accessed via "1" symbol in a regression equation, i.e. x1 ~ 1. The
@@ -65,7 +68,7 @@ class ModelGeneralizedEffects(ModelMeans):
             self.dict_effects[symb] = f
         self.matrices_names = tuple(matrices)
         super().__init__(description, mimic_lavaan=False, baseline=baseline,
-                         intercepts=intercepts)
+                         cov_diag=cov_diag, intercepts=intercepts)
         self.objectives = {'FIML': (self.obj_matnorm, self.grad_matnorm)}
     
     def preprocess_effects(self, effects: dict):

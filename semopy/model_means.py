@@ -24,7 +24,7 @@ class ModelMeans(Model):
     matrices_names = tuple(list(Model.matrices_names) + ['gamma1', 'gamma2'])
 
     def __init__(self, description: str, mimic_lavaan=False, baseline=False,
-                 intercepts=True):
+                 cov_diag=False, intercepts=True):
         """
         Instantiate Model with mean-structure.
 
@@ -32,18 +32,18 @@ class ModelMeans(Model):
         ----------
         description : str
             Model description in semopy syntax.
-
         mimic_lavaan: bool
             If True, output variables are correlated and not conceptually
             identical to indicators. lavaan treats them that way, but it's
             less computationally effective. The default is False.
-
         baseline : bool
             If True, the model will be set to baseline model.
             Baseline model here is an independence model where all variables
             are considered to be independent with zero covariance. Only
             variances are estimated. The default is False.
-
+        cov_diag : bool
+            If cov_diag is True, then there are no covariances parametrised
+            unless explicitly specified. The default is False.
         intercepts: bool
             If True, intercepts are also modeled. Intercept terms can be
             accessed via "1" symbol in a regression equation, i.e. x1 ~ 1. The
@@ -57,7 +57,7 @@ class ModelMeans(Model):
         self.intercepts = intercepts
         self.calc_fim = self.calc_fim_ml
         super().__init__(description, mimic_lavaan=mimic_lavaan,
-                         baseline=baseline)
+                         cov_diag=cov_diag, baseline=baseline)
         self.objectives = {'FIML': (self.obj_fiml, self.grad_fiml),
                            'REML': (self.obj_reml, self.grad_reml),
                            'GLS': (self.obj_gls, self.grad_gls)}

@@ -23,7 +23,7 @@ class ModelEffects(ModelMeans):
     symb_rf_covariance = '~R~'
 
     def __init__(self, description: str, mimic_lavaan=False, baseline=False,
-                 intercepts=True, d_mode='diag'):
+                 cov_diag=False, intercepts=True, d_mode='diag'):
         """
         Instantiate Random Effects SEM.
 
@@ -31,23 +31,22 @@ class ModelEffects(ModelMeans):
         ----------
         description : str
             Model description in semopy syntax.
-
         mimic_lavaan: bool
             If True, output variables are correlated and not conceptually
             identical to indicators. lavaan treats them that way, but it's
             less computationally effective. The default is False.
-
         baseline : bool
             If True, the model will be set to baseline model.
             Baseline model here is an independence model where all variables
             are considered to be independent with zero covariance. Only
             variances are estimated. The default is False.
-
+        cov_diag : bool
+            If cov_diag is True, then there are no covariances parametrised
+            unless explicitly specified. The default is False.
         intercepts: bool
             If True, intercepts are also modeled. Intercept terms can be
             accessed via "1" symbol in a regression equation, i.e. x1 ~ 1. The
             default is False.
-
         d_mode : str
             Mode of D matrix. If "diag", then D has unique params on the
             diagonal. If "full", then D is fully parametrised. If
@@ -61,8 +60,9 @@ class ModelEffects(ModelMeans):
         """
         self.dict_effects[self.symb_rf_covariance] = self.effect_rf_covariance
         self.d_mode = d_mode
-        super().__init__(description, mimic_lavaan=mimic_lavaan,
-                         baseline=baseline, intercepts=intercepts)
+        super().__init__(description, mimic_lavaan=mimic_lavaan, 
+                         cov_diag=cov_diag, baseline=baseline,
+                         intercepts=intercepts)
         self.objectives = {'REML': (self.obj_reml, self.grad_reml),
                            'REML2': (self.obj_reml2, self.grad_reml2),
                            'ML': (self.obj_matnorm, self.grad_matnorm)}
