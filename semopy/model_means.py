@@ -62,6 +62,7 @@ class ModelMeans(Model):
                            'REML': (self.obj_reml, self.grad_reml),
                            'GLS': (self.obj_gls, self.grad_gls)}
 
+
     def preprocess_effects(self, effects: dict):
         """
         Run a routine just before effects are applied.
@@ -262,6 +263,7 @@ class ModelMeans(Model):
         if operation.params and operation.params[0] == 'ordinal':
             raise SyntaxWarning("Models with mean component do not support \
                                 ordinal variables.")
+        super().operation_define(operation)
 
     def load_data(self, data: pd.DataFrame, covariance=None, groups=None):
         """

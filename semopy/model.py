@@ -173,6 +173,7 @@ class Model(ModelBase):
         self.param_ranges = ranges
         self.mx_diffs = diff_matrices
         self.identity_c = np.identity(self.mx_beta.shape[0])
+    
 
     def post_classification(self, effects: dict):
         """

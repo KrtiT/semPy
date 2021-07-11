@@ -368,10 +368,10 @@ def calc_zkz(groups: pd.Series, k: pd.DataFrame, p_names=None,
     return zkz
 
 
-def calc_restricted_ml(model, variables: set, x=None,
+def calc_reduced_ml(model, variables: set, x=None,
                        exclude=False):
     """
-    Calculate ML with restricted sigma.
+    Calculate ML with restricted/reduced sigma.
 
     Parameters
     ----------

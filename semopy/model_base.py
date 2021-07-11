@@ -51,11 +51,31 @@ class ModelBase(ABC):
             effects, operations = parse_desc(description)
         else:
             effects, operations = description
+        self.before_classification(effects, operations)
         self.classify_variables(effects, operations)
         self.post_classification(effects)
         self.create_parameters(effects)
         self.apply_operations(operations)
         self.finalize_init()
+
+    def before_classification(self, effects: dict, operations: dict):
+        """
+        Preprocess effects and operations if necessary before classification.
+
+        Parameters
+        ----------
+        effects : dict
+            Dict returned from parse_desc.
+
+        operations: dict
+            Dict of operations as returned from parse_desc.
+
+        Returns
+        -------
+        None.
+
+        """
+        pass
 
     def classify_variables(self, effects: dict, operations: dict):
         """

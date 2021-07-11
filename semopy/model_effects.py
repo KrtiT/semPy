@@ -4,11 +4,12 @@
 import pandas as pd
 import numpy as np
 from .model_means import ModelMeans
-from .utils import chol_inv, chol_inv2, cov, kron_identity, calc_zkz, chol
-from scipy.linalg import block_diag, solve_sylvester
+from .utils import chol_inv, chol_inv2, cov, calc_zkz
+from .univariate_blup import blup
+from scipy.linalg import solve_sylvester
+from collections import defaultdict
 from .solver import Solver
 from itertools import combinations
-import logging
 
 
 class ModelEffects(ModelMeans):
@@ -23,7 +24,7 @@ class ModelEffects(ModelMeans):
     symb_rf_covariance = '~R~'
 
     def __init__(self, description: str, mimic_lavaan=False, baseline=False,
-                 cov_diag=False, intercepts=True, d_mode='diag'):
+                 cov_diag=False, intercepts=True, d_mode='diag', effects=None):
         """
         Instantiate Random Effects SEM.
 
@@ -31,28 +32,32 @@ class ModelEffects(ModelMeans):
         ----------
         description : str
             Model description in semopy syntax.
-        mimic_lavaan: bool
+        mimic_lavaan: bool, optional
             If True, output variables are correlated and not conceptually
             identical to indicators. lavaan treats them that way, but it's
             less computationally effective. The default is False.
-        baseline : bool
+        baseline : bool, optional
             If True, the model will be set to baseline model.
             Baseline model here is an independence model where all variables
             are considered to be independent with zero covariance. Only
             variances are estimated. The default is False.
-        cov_diag : bool
+        cov_diag : bool, optional
             If cov_diag is True, then there are no covariances parametrised
             unless explicitly specified. The default is False.
-        intercepts: bool
+        intercepts: bool, optional
             If True, intercepts are also modeled. Intercept terms can be
             accessed via "1" symbol in a regression equation, i.e. x1 ~ 1. The
             default is False.
-        d_mode : str
+        d_mode : str, optional
             Mode of D matrix. If "diag", then D has unique params on the
             diagonal. If "full", then D is fully parametrised. If
             "scale", then D is an identity matrix, multiplied by a single
-            variance parameter (scalar). The default is "diag".
-
+            variance parameter (scalar). Utilised only if effect names
+            are not provided. The default is "diag".
+        effects : list, optional
+            List of effects name. Must correspond to cetrain columns in data.
+            If None and effects are not provided in syntax, then matrix D
+            is parametrised in accordance to d_mode. The default is None.
         Returns
         -------
         None.
@@ -60,12 +65,55 @@ class ModelEffects(ModelMeans):
         """
         self.dict_effects[self.symb_rf_covariance] = self.effect_rf_covariance
         self.d_mode = d_mode
+        if effects is None:
+            effects = set()
+        if len(effects) > 1:
+            raise Exception("ModelEffects supports only one random effect."
+                            " Consider using ModelGeneralizedEffects.")
+        self.effects_names = effects
+        self.effects_loadings = defaultdict(float)
         super().__init__(description, mimic_lavaan=mimic_lavaan, 
                          cov_diag=cov_diag, baseline=baseline,
                          intercepts=intercepts)
+
         self.objectives = {'REML': (self.obj_reml, self.grad_reml),
                            'REML2': (self.obj_reml2, self.grad_reml2),
                            'ML': (self.obj_matnorm, self.grad_matnorm)}
+
+    def before_classification(self, effects: dict, operations: dict):
+        """
+        Preprocess effects and operations if necessary before classification.
+
+        Parameters
+        ----------
+        effects : dict
+            Dict returned from parse_desc.
+
+        operations: dict
+            Dict of operations as returned from parse_desc.
+
+        Returns
+        -------
+        None.
+
+        """
+        super().before_classification(effects, operations)
+        symb = self.symb_rf_covariance
+        regr = self.symb_regression
+        eff_names = self.effects_names
+        loadings = self.effects_loadings
+        eff_regr = effects[regr]
+        eff_rf = effects[symb]
+        for v, rvs in eff_regr.items():
+            to_rem = list()
+            for rv in rvs:
+                if rv in eff_names:
+                    eff_rf[v][v] = None
+                    loadings[v] = 0.05
+                    to_rem.append(rv)
+                    continue
+            for rv in to_rem:
+                del rvs[rv]
 
     def preprocess_effects(self, effects: dict):
         """
@@ -85,24 +133,30 @@ class ModelEffects(ModelMeans):
         super().preprocess_effects(effects)
         mode = self.d_mode
         symb = self.symb_rf_covariance
+        regr = self.symb_regression
         obs = self.vars['observed']
-        if mode in ('diag', 'full'):
-            for v in obs:
-                t = effects[symb][v]
-                if v not in t:
-                    t[v] = None
-            if mode == 'full':
-                for a, b in combinations(obs, 2):
-                    t = effects[symb][a]
-                    tt = effects[symb][b]
-                    if (v not in t) and (v not in tt):
-                        t[b] = None
-        else:
-            if mode != 'scale':
-                raise Exception(f'Unknown mode "{mode}".')
-            param = 'paramD'
-            for v in obs:
-                t = effects[symb][v][v] = param
+        eff_names = self.effects_names
+        loadings = self.effects_loadings
+        if not eff_names:
+            if mode in ('diag', 'full'):
+                for v in obs:
+                    t = effects[symb][v]
+                    if v not in t:
+                        t[v] = None
+                        loadings[v] = list()
+                if mode == 'full':
+                    for a, b in combinations(obs, 2):
+                        t = effects[symb][a]
+                        tt = effects[symb][b]
+                        if (v not in t) and (v not in tt):
+                            t[b] = None
+            else:
+                if mode != 'scale':
+                    raise Exception(f'Unknown mode "{mode}".')
+                param = 'paramD'
+                for v in obs:
+                    t = effects[symb][v][v] = param
+                    loadings[v] = list()
 
     def build_d(self):
         """
@@ -121,8 +175,8 @@ class ModelEffects(ModelMeans):
         mx = np.zeros((n, n))
         return mx, (names, names)
 
-    def load(self, data, group: str, k=None, cov=None, clean_slate=False,
-             n_samples=None):
+    def load(self, data, group=None, k=None, cov=None, clean_slate=False,
+             n_samples=None, obj='ML'):
         """
         Load dataset.
 
@@ -130,9 +184,10 @@ class ModelEffects(ModelMeans):
         ----------
         data : pd.DataFrame
             Data with columns as variables.
-        group : str
-            Name of column with group labels.
-        k : pd.DataFrame
+        group : str, optional
+            Name of column with group labels. If not provided, predefined
+            columns are used.
+        k : pd.DataFrame, optional
             Covariance matrix across rows, i.e. kinship matrix. If None,
             identity is assumed. The default is None.
         cov : pd.DataFrame, optional
@@ -142,6 +197,9 @@ class ModelEffects(ModelMeans):
             If True, resets parameters vector. The default is False.
         n_samples : int, optional
             Redunant for ModelEffects. The default is None.
+        obj : str, optional
+            Objective fuction name necessary to do the initial data
+            preparation. The default is 'ML'.
 
         KeyError
             Rises when there are missing variables from the data.
@@ -160,10 +218,6 @@ class ModelEffects(ModelMeans):
             return
         else:
             data = data.copy()
-        if group is None:
-            raise Exception('Group name (column) must be provided.')
-        self.group = group
-        self.group_data = data[group].values.reshape((1, -1))
         obs = self.vars['observed']
         exo = self.vars['observed_exogenous']
         if self.intercepts:
@@ -174,6 +228,12 @@ class ModelEffects(ModelMeans):
             t = ', '.join(missing)
             raise KeyError('Variables {} are missing from data.'.format(t))
         self.load_data(data, k=k, covariance=cov, group=group)
+        if obj == 'REML':
+            if self.__loaded != 'REML':
+                self.load_reml()
+        elif obj == 'ML':
+            if self.__loaded != 'ML':
+                self.load_ml()
         self.load_starting_values()
         if clean_slate or not hasattr(self, 'param_vals'):
             self.prepare_params()
@@ -191,7 +251,7 @@ class ModelEffects(ModelMeans):
         self.last_result = res
         return res
 
-    def fit(self, data=None, group=None, k=None, cov=None, obj='REML',
+    def fit(self, data=None, group=None, k=None, cov=None, obj='ML',
             solver='SLSQP', clean_slate=False, regularization=None, **kwargs):
         """
         Fit model to data.
@@ -200,8 +260,9 @@ class ModelEffects(ModelMeans):
         ----------
         data : pd.DataFrame, optional
             Data with columns as variables. The default is None.
-        group : str
-            Name of column in data with group labels. The default is None.
+        group : str, optioal
+            Name of column in data with group labels. Overrides effect names
+            provided by the constructor. The default is None.
         cov : pd.DataFrame, optional
             Pre-computed covariance/correlation matrix. The default is None.
         obj : str, optional
@@ -231,12 +292,12 @@ class ModelEffects(ModelMeans):
 
         """
         self.load(data=data, cov=cov, group=group, k=k,
-                  clean_slate=clean_slate)
+                  clean_slate=clean_slate, obj=obj)
         if not hasattr(self, 'mx_data'):
             raise Exception('Full data must be supplied.')
         if obj == 'REML':
-            if self.__loaded != 'REML':
-                self.load_reml()
+            # if self.__loaded != 'REML':
+            #     self.load_reml()
             res_reml = self._fit(obj='REML', solver=solver, **kwargs)
             self.load_ml(fake=True)
             sigma, (self.mx_m, _) = self.calc_sigma()
@@ -245,8 +306,8 @@ class ModelEffects(ModelMeans):
             res_reml2 = self._fit(obj='REML2', solver=solver, **kwargs)
             return (res_reml, res_reml2)
         elif obj == 'ML':
-            if self.__loaded != 'ML':
-                self.load_ml()
+            # if self.__loaded != 'ML':
+            #     self.load_ml()
             res = self._fit(obj='ML', solver=solver, **kwargs)
             return res
         else:
@@ -311,6 +372,34 @@ class ModelEffects(ModelMeans):
         """
         
         self.calc_fim = self.calc_fim_means
+
+    def load_starting_values(self):
+        """
+        Load starting values for parameters from empirical data.
+
+        Returns
+        -------
+        None.
+
+        """
+        trans_data = self.mx_data_transformed.copy()
+        obs = self.vars['observed']
+        loadings = self.effects_loadings
+        for v in loadings:
+            i = obs.index(v)
+            y = trans_data[i]
+            k = self.mx_s
+            up, s = blup(y - y.mean(), k)
+            if s[0] > 0.01 and s[1] > 0.01:
+                trans_data[i] -= up
+                loadings[v] = s[1]
+        cov = self.mx_cov.copy()
+        self.mx_cov = np.cov(trans_data)
+        if len(self.mx_cov.shape) < 2:
+            self.mx_cov = self.mx_covcov.reshape((1, 1))
+        super().load_starting_values()
+        self.mx_cov = cov
+
 
     '''
     ----------------------------LINEAR ALGEBRA PART---------------------------
@@ -472,7 +561,7 @@ class ModelEffects(ModelMeans):
     ------------------------efficient computations-----------------------------
     '''
 
-    def load_data(self, data: pd.DataFrame, group: str, k=None,
+    def load_data(self, data: pd.DataFrame, group=None, k=None,
                   covariance=None):
         """
         Load dataset from data matrix.
@@ -481,8 +570,9 @@ class ModelEffects(ModelMeans):
         ----------
         data : pd.DataFrame
             Dataset with columns as variables and rows as observations.
-        group : str
-            Name of column that correspond to group labels.
+        group : str, optional
+            Name of column that correspond to group labels. If not provided,
+            items from effects_names are used. The default is None.
         k : pd.DataFrame or tuple
             Covariance matrix betwen groups. If None, then it's assumed to be
             an identity matrix. Alternatively, a tuple of (ZKZ^T, S, Q) can be
@@ -501,6 +591,8 @@ class ModelEffects(ModelMeans):
             if len(k) != 3:
                 raise Exception("Both ZKZ^T and its eigendecomposition must "
                                 "be provided.")
+        if group is None:
+            group = next(iter(self.effects_names))
         self.mx_g_orig = data[self.vars['observed_exogenous']].values.T
         if len(self.mx_g_orig.shape) != 2:
             self.mx_g_orig = self.mx_g_orig[np.newaxis, :]

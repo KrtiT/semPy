@@ -208,7 +208,10 @@ def start_d(model, lval: str, rval: str):
         Starting value.
 
     """
-    return 0.05
+    if lval == rval:
+        v = model.effects_loadings.get(lval, 0.1) / 2
+        return v
+    return 0.0
 
 def start_v(model, lval: str, rval: str):
     """
