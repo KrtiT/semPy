@@ -398,10 +398,18 @@ def inspect_list(model: Model, information='expected', std_est=False,
                         res.append((a, op, b, val, std, zs, pval))
 
     # D -- Variance of random effects matrix
+    rgr = hasattr(model, 'effects_names')
+    if rgr and model.effects_names:
+        rgr = True
     if hasattr(model, 'mx_d'):
         mx = model.mx_d
         names = model.names_d
         op = 'RF'
+        if rgr:
+            try:
+                rgr = next(iter(model.effects_names))
+            except StopIteration:
+                rgr = False
         for name, param in model.parameters.items():
             for loc in param.locations:
                 if loc.matrix is mx:
@@ -419,6 +427,12 @@ def inspect_list(model: Model, information='expected', std_est=False,
                         std = '-'
                         zs = '-'
                         pval = '-'
+                    if rgr and a == b:
+                        op = '~'
+                        val = val ** 0.5
+                        b = rgr
+                    else:
+                        op = 'RF'
                     if std_est:
                         val_est = val / std_full[ind[0]] / std_full[ind[1]]
                         res.append((a, op, b, val, val_est, std, zs, pval))
@@ -426,10 +440,13 @@ def inspect_list(model: Model, information='expected', std_est=False,
                         res.append((a, op, b, val, std, zs, pval))
     # D_(i) -- Variance of random effects matrix in ModelGeneralizedEffects
     i = 1
+    if rgr:
+        rgr = iter(model.effects_names)
     while hasattr(model, f'mx_d{i}'):
         mx = getattr(model, f'mx_d{i}')
         names = getattr(model, f'names_d{i}')
-        op = f'RF{i}'
+        if rgr:
+            eff = next(rgr)
         for name, param in model.parameters.items():
             for loc in param.locations:
                 if loc.matrix is mx:
@@ -447,6 +464,12 @@ def inspect_list(model: Model, information='expected', std_est=False,
                         std = '-'
                         zs = '-'
                         pval = '-'
+                    if rgr and a == b:
+                        op = '~'
+                        val = val ** 0.5
+                        b = eff
+                    else:
+                        op = f'RF{i}'
                     if std_est:
                         val_est = val / std_full[ind[0]] / std_full[ind[1]]
                         res.append((a, op, b, val, val_est, std, zs, pval))

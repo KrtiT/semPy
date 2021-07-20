@@ -133,7 +133,6 @@ class ModelEffects(ModelMeans):
         super().preprocess_effects(effects)
         mode = self.d_mode
         symb = self.symb_rf_covariance
-        regr = self.symb_regression
         obs = self.vars['observed']
         eff_names = self.effects_names
         loadings = self.effects_loadings
