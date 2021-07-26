@@ -385,14 +385,13 @@ class ModelEffects(ModelMeans):
         obs = self.vars['observed']
         loadings = self.effects_loadings
         k = self.mx_s
-        if not np.any(k < 1e-6):
-            for v in loadings:
-                i = obs.index(v)
-                y = trans_data[i]
-                up, s = blup(y - y.mean(), k)
-                if s[0] > 0.01 and s[1] > 0.01:
-                    trans_data[i] -= up
-                    loadings[v] = s[1]
+        for v in loadings:
+            i = obs.index(v)
+            y = trans_data[i]
+            up, s = blup(y - y.mean(), k)
+            if s[0] > 0.01 and s[1] > 0.01:
+                trans_data[i] -= up
+                loadings[v] = s[1]
         cov = self.mx_cov.copy()
         self.mx_cov = np.cov(trans_data)
         if len(self.mx_cov.shape) < 2:
