@@ -1,7 +1,7 @@
 """semopy: Structural Equation Modeling Optimization in Python"""
 
 name = "semopy"
-__version__ = "2.3.1"
+__version__ = "2.3.2"
 __author__ = "Georgy Meshcheryakov"
 
 

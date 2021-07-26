@@ -819,9 +819,7 @@ class ModelGeneralizedEffects(ModelMeans):
         a = l @ l_i_inv
         b = t_inv @ t_i_inv
         q = z @ t_inv @ t_i
-        return solve_sylvester(a, b, q)     
-        
-        
+        return solve_sylvester(a, b, q)
 
     '''
     -------------------------Fisher Information Matrix------------------------

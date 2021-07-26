@@ -4,7 +4,7 @@
 import pandas as pd
 import numpy as np
 from .model_means import ModelMeans
-from .utils import chol_inv, chol_inv2, cov, calc_zkz
+from .utils import chol_inv, chol_inv2, cov, calc_zkz, delete_mx
 from .univariate_blup import blup
 from scipy.linalg import solve_sylvester
 from collections import defaultdict
@@ -384,18 +384,19 @@ class ModelEffects(ModelMeans):
         trans_data = self.mx_data_transformed.copy()
         obs = self.vars['observed']
         loadings = self.effects_loadings
-        for v in loadings:
-            i = obs.index(v)
-            y = trans_data[i]
-            k = self.mx_s
-            up, s = blup(y - y.mean(), k)
-            if s[0] > 0.01 and s[1] > 0.01:
-                trans_data[i] -= up
-                loadings[v] = s[1]
+        k = self.mx_s
+        if not np.any(k < 1e-6):
+            for v in loadings:
+                i = obs.index(v)
+                y = trans_data[i]
+                up, s = blup(y - y.mean(), k)
+                if s[0] > 0.01 and s[1] > 0.01:
+                    trans_data[i] -= up
+                    loadings[v] = s[1]
         cov = self.mx_cov.copy()
         self.mx_cov = np.cov(trans_data)
         if len(self.mx_cov.shape) < 2:
-            self.mx_cov = self.mx_covcov.reshape((1, 1))
+            self.mx_cov = self.mx_cov.reshape((1, 1))
         super().load_starting_values()
         self.mx_cov = cov
 
@@ -884,6 +885,39 @@ class ModelEffects(ModelMeans):
             g += tr_r * tr_long
             grad[i] = g
         return grad
+
+    '''
+    -------------------------Best Linear Unbiased Predictor--------------------
+    '''
+    
+    def calc_blup(self):
+        """
+        Estimate random effects values (BLUP).
+
+        Returns
+        -------
+        np.ndarray
+        Estimates of random effects.
+
+        """
+        sigma, (m, _) = self.calc_sigma()
+        z = self.mx_data_transformed - self.calc_mean(m)
+        d = self.mx_d
+        inds = d.diagonal() < 1e-3
+        inds_i = self.mx_s < 1e-4
+        d = delete_mx(d, inds)
+        sigma = delete_mx(sigma, inds) 
+        z = np.delete(np.delete(z, inds, axis=0), inds_i, axis=1)
+        sigma = np.linalg.inv(sigma)
+        a = d @ sigma
+        b = np.diag(self.mx_s[~inds_i] ** (-1))
+        q = a @ z
+        s = solve_sylvester(a, b, q)
+        z = np.zeros((len(self.mx_s), len(d)))
+        z[~inds_i, :] = s.T
+        res = self.mx_q @ z
+        cols = np.array(self.vars['observed'])[~inds]
+        return pd.DataFrame(res, columns=cols)
 
     '''
     -----------------------Fisher Information Matrix---------------------------

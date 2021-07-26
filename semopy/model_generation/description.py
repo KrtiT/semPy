@@ -192,6 +192,9 @@ def dict_to_desc(d: dict, lats=None):
                 defines.add(lat)   
             else:
                 inds = list(filter(lambda x: x not in d, inds))
+                if not inds:
+                    defines.add(lat)
+                    continue
                 rvals = ' + '.join(inds)
                 s = f'{lat} =~ {rvals}'
                 measurement_part.append(s)
@@ -228,8 +231,8 @@ def dict_to_desc(d: dict, lats=None):
     return res
 
 
-def generate_desc(n_endo: int, n_exo: int, n_lat: int, n_inds: int,
-                  n_cycles: int, p_join=0.0, max_join=1, p_edge=0.3,
+def generate_desc(n_endo: int, n_exo: int, n_lat: int, n_inds=3,
+                  n_cycles=0, p_join=0.0, max_join=1, p_edge=0.3,
                   strict_exo=True, base_lat='eta', base_ind='y', base_endo='x',
                   base_exo='g',):
     """
@@ -237,12 +240,23 @@ def generate_desc(n_endo: int, n_exo: int, n_lat: int, n_inds: int,
 
     Parameters
     ----------
+    n_endo : int, tuple
+        Number of endogenous variables. If tuple, then the number of
+        endogenous variables is chosen randomly from the interval.
+    n_exo : int, tuple
+        Number of exogenous variables (or integer range). If 0, then actual
+        number of exogenous variable will still be 1, but it is in fact will
+        be one of the "endogenous" (not anymore!) variables.
     n_lat : int, tuple
         Number of latent factors in the model. If tuple, then the number of
         factors is chosen randomly from the interval.
-    n_inds : int, tuple
+    n_inds : int, tuple, optional
         Number of indicators per factor in the model. If tuple, then the number
         of indicators is chosen randomly from the interval for each factor.
+        The default is 3.
+    n_cycles : int, tuple
+        Number of cycles. If tuple, then the number of cycles is chosen
+        randomly from the interval.
     p_join : float
         A probability that the indicator will be shared with another latent
         factor. Closely related to max_join, as the test whether to add the

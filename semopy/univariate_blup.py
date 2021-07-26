@@ -7,7 +7,7 @@ from scipy.optimize import minimize
 
 def grad(sigmas: np.ndarray, y: np.ndarray, k: np.ndarray):
     v = 1 / (sigmas[0] + sigmas[1] * k)
-    if np.any(v < 1e-8):
+    if np.any(v < 1e-12):
         return [np.nan, np.nan]
     yt = y * v
     g = np.zeros(2)
