@@ -217,10 +217,10 @@ class Model(ModelBase):
         for v in chain(self.vars['endogenous'], self.vars['latent']):
             if v not in cov[v]:
                 cov[v][v] = None
+        for a, b in combinations(obs_exo, 2):
+            if a not in cov[b] and b not in cov[a]:
+                cov[a][b] = self.symb_starting_values
         if not self.cov_diag:
-            for a, b in combinations(obs_exo, 2):
-                if a not in cov[b] and b not in cov[a]:
-                    cov[a][b] = self.symb_starting_values
             exo_lat = self.vars['exogenous'] & self.vars['latent']
             for a, b in chain(combinations(self.vars['output'], 2),
                               combinations(exo_lat, 2)):
