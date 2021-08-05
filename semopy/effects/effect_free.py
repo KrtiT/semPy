@@ -136,6 +136,6 @@ class EffectFree(EffectBase):
         """
         n = len(self.parameters)
         if self.correlation:
-            return [(-1, 1)] * n
+            return [(None, None)] * n
         p = self.num_p
         return [(0, None)] * p + [(None, None)] * (n - p)

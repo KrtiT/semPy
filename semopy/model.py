@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """semopy 2.0 model module without random effects."""
-from .utils import chol_inv, chol_inv2, cov, delete_mx, chol
+from .utils import chol_inv, chol_inv2, cov, delete_mx
 from statsmodels.stats.correlation_tools import cov_nearest
 from itertools import combinations, chain
 from .constraints import parse_constraint
@@ -22,6 +22,12 @@ class Model(ModelBase):
     symb_starting_values = 'START'
     symb_bound_parameters = 'BOUND'
     symb_constraint = 'CONSTRAINT'
+    symb_ordinal = 'ordinal'
+    
+    # New syntax counterparts for operations:
+    symbn_starting_values = 'start'
+    symbn_bound_parameters = 'bound'
+    symbn_constraint = 'constraint'
 
     # Make sure that approriate function build_matrixname() is present.
     matrices_names = 'beta', 'lambda', 'psi', 'theta'
@@ -81,10 +87,15 @@ class Model(ModelBase):
         self.baseline = baseline
         self.constraints = list()
         self.cov_diag = cov_diag
+        self.params_to_start = list()
         dops = self.dict_operations
         dops[self.symb_starting_values] = self.operation_start
+        dops[self.symbn_starting_values] = self.operation_new_start
         dops[self.symb_bound_parameters] = self.operation_bound
+        dops[self.symbn_bound_parameters] = self.operation_new_bound
         dops[self.symb_constraint] = self.operation_constraint
+        dops[self.symbn_constraint] = self.operation_new_constraint
+        dops[self.symb_ordinal] = self.operation_ordinal
         self.objectives = {'MLW': (self.obj_mlw, self.grad_mlw),
                            'ULS': (self.obj_uls, self.grad_uls),
                            'GLS': (self.obj_gls, self.grad_gls),
@@ -598,6 +609,42 @@ class Model(ModelBase):
             except KeyError:
                 raise KeyError(f'{param} is not a valid parameter name.')
 
+    def operation_new_start(self, operation):
+        """
+        Works through start command.
+
+        Sets starting values to parameters.
+        Parameters
+        ----------
+        operation : Operation
+            Operation namedtuple.
+
+        Raise
+        ----------
+        IndexError
+            When no starting value is supplied as an argument to START.
+        KeyError
+            When invalid parameter name is supplied.
+        ValueError
+            When invalid starting value is supplied.
+
+        Returns
+        -------
+        None.
+
+        """
+        try:
+            start = operation.params[0]
+        except IndexError:
+            raise IndexError('Start must have starting value as an argument.')
+        for param in operation.onto:
+            try:
+                self.parameters[param].start = float(start)
+            except KeyError:
+                raise KeyError(f'{param} is not a valid parameter name.')
+            except ValueError:
+                raise ValueError(f'{start} is incorrect starting value.')
+
     def operation_bound(self, operation):
         """
         Works through BOUND command.
@@ -622,14 +669,54 @@ class Model(ModelBase):
         None.
 
         """
-        try:
+        try:                
             a = float(operation.params[0])
             b = float(operation.params[1])
             b = (a, b)
         except IndexError:
             raise SyntaxError('BOUND must have 2 bounding arguments.')
         except ValueError:
-            raise ValueError('BOUND arguments must be floats.')
+            raise ValueError('BOUND arguments must be 2 floats.')
+        for param in operation.onto:
+            try:
+                self.parameters[param].bound = b
+            except KeyError:
+                raise KeyError(f'{param} is not a valid parameter name.')
+
+    def operation_new_bound(self, operation):
+        """
+        Works through BOUND command.
+
+        Sets bound constraints to parameters.
+        Parameters
+        ----------
+        operation : Operation
+            Operation namedtuple.
+
+        Raise
+        ----------
+        SyntaxError
+            When no starting value is supplied as an argument to START.
+        ValueError
+            When BOUND arguments are not translatable through FLOAT.
+        KeyError
+            When invalid parameter name is supplied.
+
+        Returns
+        -------
+        None.
+
+        """
+        try:
+            try:
+                a, b = operation.params.split()
+            except ValueError:
+                raise SyntaxError('Bound must have 2 bounding arguments.')
+            a = float(a)
+            b = float(b)
+            b = (a, b)
+        except ValueError:
+            raise ValueError('BOUND arguments must be 2 floats.')
         for param in operation.onto:
             try:
                 self.parameters[param].bound = b
@@ -663,12 +750,37 @@ class Model(ModelBase):
         params = [name for name, param in self.parameters.items()
                   if param.active]
         self.constraints.append(parse_constraint(constr, params))
+    
+    def operation_new_constraint(self, operation):
+        """
+        Works through CONSTRAINT command.
+
+        Adds inequality and equality constraints.
+        Parameters
+        ----------
+        operation : Operation
+            Operation namedtuple.
+
+        Raise
+        ----------
+        SyntaxError
+            When no starting value is supplied as an argument to START.
+
+        Returns
+        -------
+        None.
+
+        """
+        constr = operation.params
+        params = [name for name, param in self.parameters.items()
+                  if param.active]
+        self.constraints.append(parse_constraint(constr, params))
 
     def operation_define(self, operation):
         """
         Works through DEFINE command.
 
-        Here, used to add ordinal variables to the variable holder.
+        Here, its main purpose is to load ordinal variables into the model.
         Parameters
         ----------
         operation : Operation
@@ -685,7 +797,30 @@ class Model(ModelBase):
                 self.vars['ordinal'] = ords
             else:
                 ords = self.vars['ordinal']
-            ords.update(operation.onto)  
+            ords.update(operation.onto)
+    
+    def operation_ordinal(self, operation):
+        """
+        Works through ordinal command.
+
+        Here, its main purpose is to load ordinal variables into the model.
+        Parameters
+        ----------
+        operation : Operation
+            Operation namedtuple.
+
+        Returns
+        -------
+        None.
+
+        """
+        if 'ordinal' not in self.vars:
+            ords = set()
+            self.vars['ordinal'] = ords
+        else:
+            ords = self.vars['ordinal']
+        ords.update(operation.onto)
+    
 
     def update_matrices(self, params: np.ndarray):
         """
@@ -714,8 +849,10 @@ class Model(ModelBase):
         None.
 
         """
-        for _, param in self.parameters.items():
+        params_to_start = set()
+        for name, param in self.parameters.items():
             if param.start is None:
+                params_to_start.add(name)
                 loc = param.locations[0]
                 n = next(n for n in range(len(self.matrices))
                          if self.matrices[n] is loc.matrix)
@@ -726,6 +863,8 @@ class Model(ModelBase):
                 loc.matrix[loc.indices] = param.start
                 if loc.symmetric:
                     loc.matrix[loc.indices[::-1]] = param.start
+        if params_to_start:
+            self.params_to_start = params_to_start
 
     def load_data(self, data: pd.DataFrame, covariance=None, groups=None):
         """
@@ -906,6 +1045,10 @@ class Model(ModelBase):
                 logging.warning('"groups" argument is redunant with cov \
                                 matrix.')
         if (data is not None) or (cov is not None):
+            if clean_slate:
+                p = self.parameters
+                for v in self.params_to_start:
+                    p[v].start = None
             self.load_starting_values()
         if (clean_slate) or (not hasattr(self, 'param_vals')):
             self.prepare_params()

@@ -11,6 +11,8 @@ __prt_op = r'\s*((?:\s\w+\s)|(?:[=~\\\*@\$<>\-]+\S*?))\s*'
 __prt_rvalue = r'(-?\w[\w.]*(?:\s*\*\s*\w[\w.]*)?(?:\s*\+\s*-?\w[\w.]*(?:\s*\*\s*\w[\w.]*)?)*)'
 PTRN_EFFECT = re.compile(__prt_lvalue + __prt_op + __prt_rvalue)
 PTRN_OPERATION = re.compile(r'([A-Z][A-Z_]+(?:\(.*\))?)\s*([\w\s]+)*')
+PTRN_OPERATION_FULL = re.compile(r'([a-z][a-z_]*)\s*(.*?)\s*:\s*(.*)\s*')
+PTRN_OPERATION_PARAM = re.compile(r'([a-z][a-z_]*)\s*[\"\'\`]\s*(.+)\s*[\"\'\`]')
 PTRN_RVALUE = re.compile(r'((-?\w[\w.]*\*)?\w[\w.]*)')
 PTRN_OP = re.compile(r'(\w+)(\(.*\))?')
 
@@ -32,8 +34,10 @@ def separate_token(token: str):
 
     Returns
     -------
-    bool
-        True if token is an effect command.
+    int
+        0 if effect, 1-2 if operation (depending on the format, there are 2
+        formats: the frist one is new small-case, the other is the old
+        capital-case).
     tuple
         A tuple of (lvalue, operation, rvalue) if command is effect or
         (operation, operands) if command is operation.
@@ -41,11 +45,17 @@ def separate_token(token: str):
     """
     effect = PTRN_EFFECT.fullmatch(token)
     if effect:
-        return True, effect.groups()
+        return 0, effect.groups()
+    operation = PTRN_OPERATION_FULL.fullmatch(token)
+    if operation:
+        return 1, operation.groups()
+    operation = PTRN_OPERATION_PARAM.fullmatch(token)
+    if operation:
+        return 2, operation.groups()
     operation = PTRN_OPERATION.fullmatch(token)
     if not operation:
         raise SyntaxError(f'Invalind syntax for line:\n{token}')
-    return False, operation.groups()
+    return 3, operation.groups()
 
 
 def parse_rvalues(token: str):
@@ -116,6 +126,37 @@ def parse_operation(operation: str, operands: str):
     return operation
 
 
+def parse_new_operation(groups: tuple):
+    """
+    Parse an operation according to semopy syntax.
+
+    Version for a new operation syntax.
+    Parameters
+    ----------
+    operation : tuple
+        Groups as returned by regex parser.
+
+    Returns
+    -------
+    operation : Operation
+        Named tuple containing information on operation.
+
+    """
+    name = groups[0]
+    params = groups[1]
+    try:
+        try:
+            operands = groups[2].split()
+        except IndexError:
+            operands = None
+    except AttributeError:
+        operands = None
+        if not params:
+            raise SyntaxError("Unknown syntax error.")
+    operation = Operation(name, params, operands)
+    return operation
+
+
 def parse_desc(desc: str):
     """
     Parse a model description provided in semopy's format.
@@ -144,14 +185,20 @@ def parse_desc(desc: str):
             pass
         line = line.strip()
         if line:
-            is_effect, items = separate_token(line)
-            if is_effect:
-                lefts, op_symb, rights = items
-                for left in lefts.split(','):
-                    rvalues = parse_rvalues(rights)
-                    effects[op_symb][left.strip()].update(rvalues)
-            else:
-                operation, operands = items
-                t = parse_operation(operation, operands)
-                operations[t.name].append(t)
+            try:
+                kind, items = separate_token(line)
+                if kind == 0:
+                    lefts, op_symb, rights = items
+                    for left in lefts.split(','):
+                        rvalues = parse_rvalues(rights)
+                        effects[op_symb][left.strip()].update(rvalues)
+                elif kind < 3:
+                    t = parse_new_operation(items)
+                    operations[t.name].append(t)
+                else:
+                    operation, operands = items
+                    t = parse_operation(operation, operands)
+                    operations[t.name].append(t)
+            except SyntaxError:
+                raise SyntaxError(f"Syntax error for line:\n{line}")
     return effects, operations

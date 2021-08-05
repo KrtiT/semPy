@@ -4,7 +4,7 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from .parser import parse_desc
-
+from itertools import chain
 
 class ModelBase(ABC):
     """
@@ -20,6 +20,7 @@ class ModelBase(ABC):
     symb_measurement = '=~'
     symb_force_variables = 'FORCE'
     symb_define = 'DEFINE'
+    symb_latent = 'latent'
     set_types = set()
     dict_effects = dict()
     dict_operations = dict()
@@ -44,8 +45,9 @@ class ModelBase(ABC):
         self.dict_effects[self.symb_regression] = self.effect_regression
         self.dict_effects[self.symb_covariance] = self.effect_covariance
         self.dict_effects[self.symb_measurement] = self.effect_measurement
-        self.dict_operations[self.symb_force_variables] = self.operation_force
         self.dict_operations[self.symb_define] = self.operation_define
+        self.dict_operations[self.symb_force_variables] = self.operation_force
+        self.dict_operations[self.symb_latent] = self.operation_latent
         self.description = description
         if type(description) is str:
             effects, operations = parse_desc(description)
@@ -113,6 +115,8 @@ class ModelBase(ABC):
         for operation in operations[self.symb_define]:
             if operation.params and operation.params[0] == 'latent':
                 latents.update(operation.onto)
+        for operation in operations[self.symb_latent]:
+            latents.update(operation.onto)
         for operation in operations[self.symb_force_variables]:
             if operation.params and operation.params[0] == 'endo':
                 in_arrows.update(operation.onto)
@@ -215,6 +219,23 @@ class ModelBase(ABC):
     def operation_define(self, operation):
         """
         Works through DEFINE command.
+
+        Parameters
+        ----------
+        operation : Operation
+            Operation namedtuple.
+
+        Returns
+        -------
+        None.
+
+        """
+        pass
+
+
+    def operation_latent(self, operation):
+        """
+        Works through latent command.
 
         Parameters
         ----------
