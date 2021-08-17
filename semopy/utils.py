@@ -313,9 +313,6 @@ def calc_zkz(groups: pd.Series, k: pd.DataFrame, p_names=None,
 
     Raises
     ------
-    Exception
-        Incorrect number of groups: mismatch between dimensions of K and
-        groups series.
     KeyError
         Incorrect group naming.
 
@@ -356,8 +353,6 @@ def calc_zkz(groups: pd.Series, k: pd.DataFrame, p_names=None,
         return z
     if k is None:
         k = np.identity(p)
-    elif k.shape[0] != p:
-        raise Exception("Dimensions of K don't match number of groups.")
     if type(k) is pd.DataFrame:
         try:
             k = k.loc[p_names, p_names].values

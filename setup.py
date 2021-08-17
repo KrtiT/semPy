@@ -11,7 +11,7 @@ setup(
       package_data={'': ['examples/*.csv', 'examples/*.npy', 'report/*.html', 'report/*.txt',
 					'examples/*.txt', 'report/css/*.css', 'report/js/*.js']},
       name="semopy",
-      version="2.3.5",
+      version="2.3.6",
       author="Georgy Meshcheryakov",
       author_email="metsheryakov_ga@spbstu.ru",
       description="Structural Equation Modeling Optimization in Python.",
