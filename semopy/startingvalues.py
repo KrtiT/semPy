@@ -211,7 +211,7 @@ def start_d(model, lval: str, rval: str):
     if lval == rval:
         try:
             v = model.effects_loadings.get(lval, 0.1) / 2
-        except AttributeError:
+        except (AttributeError, TypeError):
             v = 0.05
         return v
     return 0.0
