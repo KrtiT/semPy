@@ -372,32 +372,32 @@ class ModelEffects(ModelMeans):
         
         self.calc_fim = self.calc_fim_means
 
-    def load_starting_values(self):
-        """
-        Load starting values for parameters from empirical data.
+    # def load_starting_values(self):
+    #     """
+    #     Load starting values for parameters from empirical data.
 
-        Returns
-        -------
-        None.
+    #     Returns
+    #     -------
+    #     None.
 
-        """
-        trans_data = self.mx_data_transformed.copy()
-        obs = self.vars['observed']
-        loadings = self.effects_loadings
-        k = self.mx_s
-        for v in loadings:
-            i = obs.index(v)
-            y = trans_data[i]
-            up, s = blup(y - y.mean(), k)
-            if s[0] > 0.01 and s[1] > 0.01:
-                trans_data[i] -= up
-                loadings[v] = s[1]
-        cov = self.mx_cov.copy()
-        self.mx_cov = np.cov(trans_data)
-        if len(self.mx_cov.shape) < 2:
-            self.mx_cov = self.mx_cov.reshape((1, 1))
-        super().load_starting_values()
-        self.mx_cov = cov
+    #     """
+    #     trans_data = self.mx_data_transformed.copy()
+    #     obs = self.vars['observed']
+    #     loadings = self.effects_loadings
+    #     k = self.mx_s
+    #     for v in loadings:
+    #         i = obs.index(v)
+    #         y = trans_data[i]
+    #         up, s = blup(y - y.mean(), k)
+    #         if s[0] > 0.01 and s[1] > 0.01:
+    #             trans_data[i] -= up
+    #             loadings[v] = s[1]
+    #     cov = self.mx_cov.copy()
+    #     self.mx_cov = np.cov(trans_data)
+    #     if len(self.mx_cov.shape) < 2:
+    #         self.mx_cov = self.mx_cov.reshape((1, 1))
+    #     super().load_starting_values()
+    #     self.mx_cov = cov
 
 
     '''
@@ -1120,7 +1120,7 @@ class ModelEffects(ModelMeans):
             preds += cov12 @ cov22 @ (data[present] - mean_p)
         data[missing] = preds
         data = data.reshape(data_shape, order='F').T
-        result = pd.DataFrame(data, columns=obs)
+        result = pd.DataFrame(data, columns=obs, index=x.index)
         return result
 
     def predict_factors(self, x: pd.DataFrame):

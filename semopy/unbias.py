@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 
 def bias_correction(model, n=100, resample_mean=False, extra_data=None,
-                    max_rel_fun=3, clean_slate=False, **kwargs):
+                    max_rel_fun=1000, clean_slate=False, **kwargs):
     """
     Parametric Bootstrap bias correction.
 
@@ -61,10 +61,11 @@ def bias_correction(model, n=100, resample_mean=False, extra_data=None,
             data.index = extra_data.index
             st = extra_cols - set(data.columns)
             data = pd.concat([data, extra_data[st]], axis=1)
-        r = model_c.fit(data, clean_slate=clean_slate, **kwargs)
+        cov = data.cov()
+        r = model_c.fit(data, cov=cov, clean_slate=clean_slate, **kwargs)
         if not r.success or (r.fun > max_rel_fun * fun):
             row_fails += 1
-            if row_fails == 20:
+            if row_fails == 40:
                 raise np.linalg.LinAlgError("Couldn't sample proper data.")
             continue
         if t is None:

@@ -245,6 +245,7 @@ def hetcor(data, ords=None, nearest=False):
                 if len(data[var].unique()) / len(data[var]) < 0.3:
                     ords.add(var)
         conts = set(data.columns) - set(ords)
+    data = data.T
     c_means = {v: np.nanmean(data[v]) for v in conts}
     c_vars = {v: np.nanvar(data[v]) for v in conts}
     c_z = {v: (data[v] - c_means[v]) / c_vars[v] for v in conts}

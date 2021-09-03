@@ -1288,7 +1288,7 @@ class Model(ModelBase):
                 row[missing] = mn[missing] + sprod @ c
             else:
                 row[missing] = sprod @ row[present]
-        return pd.DataFrame(result, columns=obs)
+        return pd.DataFrame(result, columns=obs, index=x.index)
 
     def predict_general(self, x: pd.DataFrame, solver='SLSQP', factors=True,
                         ret_opt=False, chunk_size=20):
