@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """This module implements polychoric and polyserial correlations."""
+from typing import Sequence
 from statsmodels.stats.correlation_tools import corr_nearest
 from scipy.optimize import minimize, minimize_scalar
 from itertools import chain, product, combinations
@@ -10,7 +11,8 @@ import pandas as pd
 import numpy as np
 
 
-def bivariate_cdf(lower, upper, corr, means=[0, 0], var=[1, 1]):
+def bivariate_cdf(lower: Sequence[float], upper: Sequence[float], corr: float,
+                  means: Sequence[float] = (0, 0), var: Sequence[float] = (1, 1)) -> float:
     """
     Estimates an integral of bivariate pdf.
 
@@ -19,16 +21,16 @@ def bivariate_cdf(lower, upper, corr, means=[0, 0], var=[1, 1]):
     and variance) lower and/or upper bounds when integrating to/from infinity.
     Parameters
     ----------
-    lower : float
+    lower : Sequence[float]
         Lower integration bounds.
-    upper : float
+    upper : Sequence[float]
         Upper integration bounds.
     corr : float
         Correlation coefficient between variables.
-    means : list, optional
-        Mean values of variables. The default is [0, 0].
-    var : list, optional
-        Variances of variables. The default is [1, 1].
+    means : Sequence[float], optional
+        Mean values of variables. The default is (0, 0).
+    var : Sequence[float], optional
+        Variances of variables. The default is (1, 1).
 
     Returns
     -------
@@ -205,7 +207,7 @@ def polychoric_corr(x, y, x_ints=None, y_ints=None):
                                  [x_ints[i + 1], y_ints[j + 1]], r)) * n[i, j]
                     for i in range(p) for j in range(m))
     return minimize_scalar(calc_likelihood, bounds=(-1, 1), method='bounded').x
-                
+
 
 def hetcor(data, ords=None, nearest=False):
     """
