@@ -2,7 +2,6 @@
 """Effect with a fully parametrised K matrix"""
 from ..utils import calc_zkz
 from .effect_base import EffectBase
-import pandas as pd
 import numpy as np
 
 
@@ -13,6 +12,7 @@ class EffectFree(EffectBase):
     Number of new parameters introduced is equal to g(g + 1) / 2, where g is
     an unique number of groups in data.
     """
+
     def __init__(self, columns: str, correlation=True, d_mode='diag'):
         """
         Instantiate EffectStatic.
@@ -37,7 +37,7 @@ class EffectFree(EffectBase):
         None.
 
         """
-        
+
         super().__init__(columns, d_mode=d_mode)
         self.correlation = correlation
 

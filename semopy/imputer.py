@@ -270,7 +270,7 @@ class ImputerMeans(ModelMeans):
 
     symb_missing = '@'
 
-    matrices_names = tuple(list(ModelMeans.matrices_names) +\
+    matrices_names = tuple(list(ModelMeans.matrices_names) +
                            ['data_imp', 'g_imp'])
 
     def __init__(self, model: ModelMeans, data: pd.DataFrame, factors=True):
@@ -564,7 +564,7 @@ class ImputerMeans(ModelMeans):
         data = pd.DataFrame(self.mx_data_imp, index=self.names_data_imp[0],
                             columns=self.names_data_imp[1])
         g = pd.DataFrame(self.mx_g_imp, index=self.names_g_imp[0],
-                            columns=self.names_g_imp[1])
+                         columns=self.names_g_imp[1])
         if '1' in g.index:
             g.drop('1', inplace=True)
         res = pd.concat([data, g]).T
@@ -581,15 +581,16 @@ class ImputerMeans(ModelMeans):
     def operation_constraint(self, operation):
         pass
 
+
 class ImputerEffects(ModelEffects):
     """ModelEffects for missing data imputation."""
 
     symb_missing = '@'
 
-    matrices_names = tuple(list(ModelEffects.matrices_names) +\
+    matrices_names = tuple(list(ModelEffects.matrices_names) +
                            ['data_imp', 'g_imp'])
 
-    def __init__(self, model: ModelMeans, data: pd.DataFrame, group: str, 
+    def __init__(self, model: ModelMeans, data: pd.DataFrame, group: str,
                  k=None, factors=True):
         """
         Instantiate ImputerMeans.
@@ -668,12 +669,11 @@ class ImputerEffects(ModelEffects):
             try:
                 k = k.loc[p_names, p_names].values
             except KeyError:
-                raise KeyError("Certain groups in K differ from those "\
-                                "provided in a dataset.")
+                raise KeyError("Certain groups in K differ from those "
+                               "provided in a dataset.")
         self.mx_g = data[self.vars['observed_exogenous']].values.T
         if len(self.mx_g.shape) != 2:
             self.mx_g = self.mx_g[np.newaxis, :]
-        g = self.mx_g
         self.num_m = self.vars['observed']
         zkz = z @ k @ z.T
         c = np.linalg.inv(np.identity(self.mx_beta.shape[0]) - self.mx_beta)
@@ -681,9 +681,9 @@ class ImputerEffects(ModelEffects):
         sigma = m @ self.mx_psi @ m.T + self.mx_theta
         self.mx_m = m
         m = len(obs)
-        r = n * (np.ones((m, m)) * self.mx_v[0, 0] + sigma)\
+        r = n * (np.ones((m, m)) * self.mx_v[0, 0] + sigma) \
             + np.trace(zkz) * self.mx_d
-        w = np.ones((n, n)) * np.trace(sigma) + zkz * np.trace(self.mx_d) +\
+        w = np.ones((n, n)) * np.trace(sigma) + zkz * np.trace(self.mx_d) + \
             np.identity(n) * self.mx_v[0, 0] * m
         self.mx_r_inv = chol_inv(r)
         self.mx_w_inv = chol_inv(w)
@@ -936,7 +936,7 @@ class ImputerEffects(ModelEffects):
         data = pd.DataFrame(self.mx_data_imp, index=self.names_data_imp[0],
                             columns=self.names_data_imp[1])
         g = pd.DataFrame(self.mx_g_imp, index=self.names_g_imp[0],
-                            columns=self.names_g_imp[1])
+                         columns=self.names_g_imp[1])
         if '1' in g.index:
             g.drop('1', inplace=True)
         res = pd.concat([data, g]).T

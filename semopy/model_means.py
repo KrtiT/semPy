@@ -7,7 +7,7 @@ import pandas as pd
 from .model import Model
 from collections import defaultdict
 from scipy.linalg import block_diag
-from .utils import chol, chol_inv, chol_inv2, delete_mx, cov
+from .utils import chol_inv, chol_inv2, delete_mx, cov
 
 
 class ModelMeans(Model):
@@ -61,7 +61,6 @@ class ModelMeans(Model):
         self.objectives = {'FIML': (self.obj_fiml, self.grad_fiml),
                            'REML': (self.obj_reml, self.grad_reml),
                            'GLS': (self.obj_gls, self.grad_gls)}
-
 
     def preprocess_effects(self, effects: dict):
         """
@@ -316,7 +315,7 @@ class ModelMeans(Model):
             d = np.diag(d)[rank_dec:, :]
             self.mx_s = d @ q.T
             self.mx_data_transformed = self.mx_s @ self.mx_data
-            self.mx_data_square = self.mx_data_transformed.T @\
+            self.mx_data_square = self.mx_data_transformed.T @ \
                                   self.mx_data_transformed
         self.load_cov(covariance.loc[obs, obs]
                       if covariance is not None else cov(self.mx_data))
@@ -799,7 +798,7 @@ class ModelMeans(Model):
                     exogenous[v] = 0
                 else:
                     exogenous[v] = 1
-        g = exogenous[exos].values.T 
+        g = exogenous[exos].values.T
         t = np.linalg.inv(np.identity(self.mx_beta.shape[0]) - self.mx_beta)
         t = (self.mx_lambda @ t @ self.mx_gamma1 + self.mx_gamma2) @ g
         return pd.DataFrame(t.T, columns=self.vars['observed'],
@@ -831,7 +830,9 @@ class ModelMeans(Model):
         c = np.linalg.inv(np.identity(self.mx_beta.shape[0]) - self.mx_beta)
         c_1 = c[:num_lat, :]
         c_2 = c[num_lat:, :]
-        g1 = self.mx_gamma1; g2 = self.mx_gamma2; g = self.mx_g
+        g1 = self.mx_gamma1
+        g2 = self.mx_gamma2
+        g = self.mx_g
         M_h = x - (g2 + lambda_x @ c_2 @ g1) @ g
         t = lambda_x @ c_2
         L_zh = (t @ self.mx_psi @ t.T + self.mx_theta) * (x.shape[1])
@@ -917,7 +918,7 @@ class ModelMeans(Model):
                 logging.warn("Fisher Information Matrix is not PD."
                              "Moore-Penrose inverse will be used instead of "
                              "Cholesky decomposition. See "
-                              "10.1109/TSP.2012.2208105.")
+                             "10.1109/TSP.2012.2208105.")
                 self._fim_warn = True
                 mx_var_inv = np.linalg.pinv(mx_var)
                 mx_fixed_inv = np.linalg.pinv(mx_fixed)
@@ -970,12 +971,11 @@ class ModelMeans(Model):
                 logging.warn("Fisher Information Matrix is not PD."
                              "Moore-Penrose inverse will be used instead of "
                              "Cholesky decomposition. See "
-                              "10.1109/TSP.2012.2208105.")
+                             "10.1109/TSP.2012.2208105.")
                 self._fim_warn = True
                 fim_inv = np.linalg.pinv(fim)
             return (fim, fim_inv)
         return fim
-
 
     def grad_se_g(self, x: np.ndarray):
         """
@@ -1013,7 +1013,7 @@ class ModelMeans(Model):
         for i in range(self.mx_data.shape[0]):
             x = self.mx_data[i] - mean[i]
             x = x[:, np.newaxis]
-            t = inv_sigma @ (mx_i -  x @ x.T @ inv_sigma)
+            t = inv_sigma @ (mx_i - x @ x.T @ inv_sigma)
             t2 = (inv_sigma @ x).flatten()
             g = np.zeros_like(self.param_vals)
             for i, (s_g, m_g) in enumerate(zip(sigma_grad, mean_grad)):
@@ -1026,5 +1026,5 @@ class ModelMeans(Model):
                 else:
                     cov = 0
                 g[i] += m + cov
-            res.append(g)      
+            res.append(g)
         return res

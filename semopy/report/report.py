@@ -12,12 +12,14 @@ __vis = os.path.join(__folder, 'vis.txt')
 __css = os.path.join(os.path.join(__folder, 'css'), 'bootstrap.min.css')
 __js = os.path.join(os.path.join(__folder, 'js'), 'bootstrap.min.js')
 __navitem = '''<li class="nav-item" role="presentation">
-<button class="nav-link {2}" id="{0}-tab" data-bs-toggle="tab" data-bs-target="#{0}" type="button" role="tab" aria-controls="{0}" aria-selected="{3}">{1}</button>
+<button class="nav-link {2}" id="{0}-tab" data-bs-toggle="tab" data-bs-target="#{0}"
+type="button" role="tab" aria-controls="{0}" aria-selected="{3}">{1}</button>
 </li>'''
 __tab = '''<div class="tab-pane fade {2}" id="{0}" role="tabpanel" aria-labelledby="{0}-tab">{1}</div>'''
 __start = '''<ul class="nav nav-tabs" id="{0}" role="tablist">'''
 __cont = '''</ul><div class="tab-content" id="{0}Content">'''
 __end = '''</div>'''
+
 
 def report(model, name: str, path='', std_est=False, se_robust=False,
            **kwargs):
@@ -57,7 +59,7 @@ def report(model, name: str, path='', std_est=False, se_robust=False,
         converged = 'No'
     obj = model.last_result.name_obj
     clasv = str()
-    pt = '<div class="row"><div class="col-sm-2">{}</div>'\
+    pt = '<div class="row"><div class="col-sm-2">{}</div>' \
          '<div class="col-sm-6">{}</div></div>'
     for c, its in model.vars.items():
         clasv += pt.format(c, ', '.join(its))
@@ -111,7 +113,7 @@ def report(model, name: str, path='', std_est=False, se_robust=False,
                 var[lval].append(t)
         else:
             other[op][lval].append(t)
-    pt = "<div class='col-sm-2'>{}</div><div class='col-sm-2'>{}</div>"\
+    pt = "<div class='col-sm-2'>{}</div><div class='col-sm-2'>{}</div>" \
          "<div class='col-sm-1'>{}</div><div class='col-sm-1'>{}</div>"
     if std_est:
         pt += "<div class='col-sm-1'>{}</div>"
@@ -120,8 +122,8 @@ def report(model, name: str, path='', std_est=False, se_robust=False,
     else:
         t = pt.format('', '', 'Estimate', 'P-value')
     ests = '<div class="row">' + t + '</div>'
-    ptt = "<div class='col-sm-2 text-end'>{}</div>"\
-          "<div class='col-sm-2'>{}</div><div class='col-sm-1'>{}</div>"\
+    ptt = "<div class='col-sm-2 text-end'>{}</div>" \
+          "<div class='col-sm-2'>{}</div><div class='col-sm-1'>{}</div>" \
           "<div class='col-sm-1'>{}</div>"
     if std_est:
         ptt += "<div class='col-sm-1'>{}</div>"
@@ -175,7 +177,7 @@ def report(model, name: str, path='', std_est=False, se_robust=False,
                 for (rval, est, pval) in its:
                     t = ptt.format('', lval, est, pval)
                     ests += '<div class="row">' + t + '</div>'
-                    
+
     if var:
         if std_est:
             t = pt.format('Variances:', '', '', '', '')
@@ -242,11 +244,11 @@ def report(model, name: str, path='', std_est=False, se_robust=False,
         semplot(model, os.path.join(pp, '3.png'), plot_ests=False,
                 plot_covs=True, **kwargs)
         semplot(model, os.path.join(pp, '4.png'), plot_ests=True,
-                       plot_covs=True, **kwargs)
+                plot_covs=True, **kwargs)
         with open(__vis, 'r') as f:
             vis = f.read()
     except Exception as e:
-        s = 'Could not plot model. Possible Graphviz installation issues.' 
+        s = 'Could not plot model. Possible Graphviz installation issues.'
         logging.warning(s + ' ' + str(e))
         vis = f'<div class="alert alert-warning" role="alert">{s}</div>'
     stats = calc_stats(model)
@@ -271,22 +273,22 @@ def report(model, name: str, path='', std_est=False, se_robust=False,
     c = 'table table-bordered'
     d = defaultdict(list)
     for n, mx in model.inspect('mx').items():
-        d[n].append(mx.to_html(float_format=fmt, classes=c, 
+        d[n].append(mx.to_html(float_format=fmt, classes=c,
                                justify='center'))
     for n, mx in model.inspect('mx', what='start').items():
-        d[n].append(mx.to_html(float_format=fmt, classes=c, 
-                                justify='center'))
+        d[n].append(mx.to_html(float_format=fmt, classes=c,
+                               justify='center'))
     for n, mx in model.inspect('mx', what='name').items():
-        d[n].append(mx.to_html(float_format=fmt, classes=c, 
+        d[n].append(mx.to_html(float_format=fmt, classes=c,
                                justify='center'))
     obs = model.vars['observed']
     sigma, _ = model.calc_sigma()
     cov = pd.DataFrame(model.mx_cov, columns=obs, index=obs)
-    cov = cov.to_html(float_format=fmt, classes=c,justify='center')
+    cov = cov.to_html(float_format=fmt, classes=c, justify='center')
     if hasattr(model, 'calc_l'):
         sigma = model.calc_l(sigma=sigma)
     sigma = pd.DataFrame(sigma, columns=obs, index=obs)
-    sigma = sigma.to_html(float_format=fmt, classes=c,justify='center')
+    sigma = sigma.to_html(float_format=fmt, classes=c, justify='center')
     matrices = '<center><h4>Covariance matrix</h4></center>\n'
     matrices += __start.format('cov')
     matrices += __navitem.format('sample', 'Sample', 'active', 'true')
@@ -306,25 +308,25 @@ def report(model, name: str, path='', std_est=False, se_robust=False,
     for i, (n, mxs) in enumerate(d.items()):
         sub = __start.format(n + 'sub')
         for j, (mode, mx) in enumerate(zip(('Estimates', 'Start', 'Names'),
-                                         mxs)):
+                                           mxs)):
             if j == 0:
                 sub += __navitem.format(n + mode, mode, 'active', 'true')
             else:
                 sub += __navitem.format(n + mode, mode, '', 'false')
         sub += __cont.format(name + 'sub')
         for j, (mode, mx) in enumerate(zip(('Estimates', 'Start', 'Names'),
-                                         mxs)):
+                                           mxs)):
             if j == 0:
                 sub += __tab.format(n + mode, mx, 'show active')
             else:
                 sub += __tab.format(n + mode, mx, '')
         sub += __end
         if i == 0:
-            matrices += __tab.format(f'mx{n}', sub,'show active')
+            matrices += __tab.format(f'mx{n}', sub, 'show active')
         else:
             matrices += __tab.format(f'mx{n}', sub, '')
     matrices += __end
-        
+
     with open(__index, 'r') as f:
         html = f.read()
     html = html.format(ModelName=name, OptimizerReport=optresult,
@@ -333,8 +335,8 @@ def report(model, name: str, path='', std_est=False, se_robust=False,
                        Converged=converged, Objective=obj,
                        Visualization=vis, Estimates=ests, Matrices=matrices,
                        InspectionTable=str(ins), FitIndices=fitindices,
-                       Version=__version__,  ModelClass=model_name)
-    
+                       Version=__version__, ModelClass=model_name)
+
     with open(os.path.join(path, 'report.html'), 'w') as f:
         f.write(html)
     css = os.path.join(path, 'css')

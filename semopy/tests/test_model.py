@@ -10,7 +10,7 @@ np.random.seed(2021)
 n = 100
 p = 3
 params = [np.random.uniform(0.2, 1.2, size=(p - 1, 1)),
-          np.random.uniform(0.2, 1.2, size=(p -1, 1))]
+          np.random.uniform(0.2, 1.2, size=(p - 1, 1))]
 params = list(map(lambda x: np.append([1], x), params))
 y = np.random.normal(size=(n, 2 * p))
 eta1 = np.random.normal(scale=1, size=(n, 1))
@@ -46,22 +46,22 @@ class TestModel(unittest.TestCase):
         ins = m.inspect()
         errs = list()
         for _, row in true.iterrows():
-            t = (ins['op'] == row['op']) & (ins['lval'] == row['lval']) &\
+            t = (ins['op'] == row['op']) & (ins['lval'] == row['lval']) & \
                 (ins['rval'] == row['rval'])
             if sum(t) == 0:
                 continue
             t = ins[t]
             try:
-                assert t['p-value'].values[0] < 0.05,\
-                       f"Incorrect p-value estimate [{obj}]."
+                assert t['p-value'].values[0] < 0.05, \
+                    f"Incorrect p-value estimate [{obj}]."
             except TypeError:
                 pass
             est = t['Estimate'].values[0]
             errs.append(abs((est - row['Estimate']) / row['Estimate']))
         err = np.mean(errs)
         assert err < 0.1, \
-               f"Parameter estimation quality is too low: {err} [{obj}]"
-    
+            f"Parameter estimation quality is too low: {err} [{obj}]"
+
     def test_univariate_regression(self):
         desc = univariate_regression.get_model()
         data = univariate_regression.get_data()

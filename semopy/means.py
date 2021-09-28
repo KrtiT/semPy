@@ -306,7 +306,7 @@ class MeanEstimator():
         return res
 
 
-def estimate_means(mod: Model, method='ML', solver='SLSQP', 
+def estimate_means(mod: Model, method='ML', solver='SLSQP',
                    pvals=False, ret_opt=False):
     """
     Estimate means for meanstructure-free model.
