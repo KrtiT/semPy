@@ -13,10 +13,8 @@ __desc = '''visual =~ x1 + x2 + x3
 textual =~ x4 + x5 + x6
 speed =~ x7 + x8 + x9'''
 
-
-
 __filename = '%s/holzinger_swineford39_data.csv' % \
-    os.path.dirname(os.path.abspath(__file__))
+             os.path.dirname(os.path.abspath(__file__))
 
 
 def get_model():

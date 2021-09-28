@@ -4,7 +4,7 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from .parser import parse_desc
-from itertools import chain
+
 
 class ModelBase(ABC):
     """
@@ -231,7 +231,6 @@ class ModelBase(ABC):
 
         """
         pass
-
 
     def operation_latent(self, operation):
         """

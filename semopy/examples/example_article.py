@@ -20,7 +20,6 @@ y7 ~ x4 + x6
 y6 ~~ y5
 x2 ~~ eta2'''
 
-
 __folder = os.path.dirname(os.path.abspath(__file__))
 __filename = '%s/article_data.csv' % __folder
 __u_filename = '%s/article_data_u.npy' % __folder
@@ -31,6 +30,7 @@ __v_filename = '%s/article_data_u_vars.txt' % __folder
 __ma_filename = '%s/article_data_ma.npy' % __folder
 __mv_filename = '%s/article_data_ma_vars.txt' % __folder
 __params_filename = '%s/article_params.csv' % __folder
+
 
 def get_model():
     """
@@ -95,6 +95,7 @@ def get_data(drop_factors=True, random_effects=0, moving_average=False):
         return data, (k, k2)
     return data
 
+
 def get_params():
     """
     Retrieve true parameter values.
@@ -105,4 +106,3 @@ def get_params():
 
     """
     return pd.read_csv(__params_filename, sep=',', index_col=0)
-    

@@ -36,6 +36,7 @@ def get_data():
     """
     return pd.read_csv(__filename, index_col=0)
 
+
 def get_params():
     """
     Retrieve true parameter estimates.

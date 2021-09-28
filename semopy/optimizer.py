@@ -14,4 +14,3 @@ class Optimizer():
     def optimize(self, obj='MLW', method='SLSQP'):
         res = self.model.fit(obj=obj, solver=method)
         return res.fun
-
