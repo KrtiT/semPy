@@ -6,6 +6,7 @@ variables:
 before_script:
   - pip install -r requirements.txt
   - pip install flake8
+  - pip install -r semopy/tests/requirements.txt
   - ${PYTHON} -v
 
 stages:
@@ -20,4 +21,4 @@ static_analysis:
 unit_tests:
   stage: tests
   script:
-    - ${PYTHON} -m unittest semopy/tests/*.py
+    - ${PYTHON} -m pytest semopy/tests/
