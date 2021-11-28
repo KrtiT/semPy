@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 from semopy.tests.testing_utils import rand_positive_definite_mtx
 from semopy.lanczos.trace_approx import tr_approx, ApproxMethod
-from semopy.lanczos.trace_approx_vis import matrix_fun
+from semopy.tests.lanczos.trace_approx_vis import matrix_fun
 
 
 def trace_approx_benchmark(n_lanczos_iter: int,
