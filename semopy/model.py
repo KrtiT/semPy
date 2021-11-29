@@ -1533,7 +1533,7 @@ class Model(ModelBase):
         sigma_full, _ = self.calc_sigma()
         tr = 0
         logdet = 0
-        for _, (mx, inds, n) in self.fiml_data.items():
+        for mx, inds, n in self.fiml_data.values():
             sigma = delete_mx(sigma_full, inds)
             try:
                 sigma_inv, logdet_sigma = chol_inv2(sigma)
