@@ -15,16 +15,16 @@ def trace_approx_benchmark(n_lanczos_iter: int,
                            n_hutchinson_iter: int,
                            eig_max: int,
                            fig_file: Path):
-    methods = (
-        ApproxMethod.gauss_lanczos_naive,
-        ApproxMethod.gauss_lanczos_memopt,
-    )
+    methods = {
+        ApproxMethod.gauss_lanczos_naive: "Gauss-Lanczos (naive)",
+        ApproxMethod.gauss_lanczos_memopt: "Gauss-Lanczos (optimized)",
+    }
 
     n_repeats = 20
     mtx_sizes = list(range(20, 521, 20))
     n_observ = len(mtx_sizes)
     times_exact = [0] * n_observ
-    times, errs = ({method: [0] * n_observ for method in methods} for _ in range(2))
+    times, errs = ({method: [0] * n_observ for method in methods.keys()} for _ in range(2))
 
     for i_obs, m_size in enumerate(mtx_sizes):
         for seed in range(n_repeats):
@@ -35,7 +35,7 @@ def trace_approx_benchmark(n_lanczos_iter: int,
             t_exact_end = time.perf_counter()
             times_exact[i_obs] += t_exact_end - t_exact_start
 
-            for method in methods:
+            for method in methods.keys():
                 t_start = time.perf_counter()
                 tr_appr = tr_approx(mtx=r_mtx.mtx, f=matrix_fun, n_samples=n_hutchinson_iter, max_iter=n_lanczos_iter,
                                     seed=seed, approx_method=method)
@@ -49,18 +49,18 @@ def trace_approx_benchmark(n_lanczos_iter: int,
 
             map(normalize, [times_exact, *times.values(), *errs.values()])
 
-    fig, (ax_top, ax_bottom) = plt.subplots(nrows=2, ncols=1)
+    fig, (ax_top, ax_bottom) = plt.subplots(nrows=2, ncols=1, dpi=400)
 
     ax_top.plot(mtx_sizes, times_exact)
-    for method in methods:
+    for method in methods.keys():
         ax_top.plot(mtx_sizes, times[method])
-    ax_top.legend(["exact", *(str(method) for method in methods)])
+    ax_top.legend(["exact", *(method_name for method_name in methods.values())])
     ax_top.set_title("time performance in seconds")
     ax_top.set_xlabel("mtx size")
 
-    for method in methods:
+    for method in methods.keys():
         ax_bottom.plot(mtx_sizes, errs[method])
-    ax_bottom.legend(list(map(str, methods)))
+    ax_bottom.legend(methods.values())
     ax_bottom.set_title("relative error")
     ax_bottom.set_xlabel("mtx size")
 

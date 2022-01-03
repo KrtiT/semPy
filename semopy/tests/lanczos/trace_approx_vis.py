@@ -86,7 +86,7 @@ def vis_gauss_lanczos_mtx_size():
         average_err /= n_repetitions
         average_errs.append(average_err)
 
-    plt.figure()
+    plt.figure(dpi=400)
     plt.plot(mtx_sizes, average_errs)
     plt.title("Trace approximation with Gauss-Lanczos procedure: \n relative deviation")
     plt.xlabel("matrix size")
