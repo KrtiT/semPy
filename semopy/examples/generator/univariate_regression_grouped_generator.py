@@ -30,10 +30,9 @@ def generate():
     data_random_bias.to_csv("../univariate_regression_grouped_data.csv")
 
     # TODO produce meaningful kinship matrix
-    data_size = len(data_random_bias)
-    k_proto = np.random.uniform(0, 1, (data_size, data_size))
+    k_proto = np.random.uniform(0, 1, (n_groups, n_groups))
     k = k_proto @ k_proto.T
-    pd.DataFrame(k, columns=list(range(data_size))).to_csv("../univariate_regression_grouped_kinship.csv")
+    pd.DataFrame(k, columns=list(range(n_groups))).to_csv("../univariate_regression_grouped_kinship.csv")
 
 
 
