@@ -360,7 +360,9 @@ def calc_zkz(groups: pd.Series, k: pd.DataFrame, p_names=None,
             k = k.loc[p_names, p_names].values
         except KeyError:
             raise KeyError("Certain groups in K differ from those "
-                           "provided in a dataset.")
+                           "provided in a dataset."
+                           "Hint: check that columns and rows in the DataFrame are same "
+                           "and their names are of the same type")
     zkz = z @ k @ z.T
     return zkz
 
