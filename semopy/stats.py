@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Statistic and fit indices."""
+import logging
+
 from .utils import duplication_matrix
 from scipy.stats import norm, chi2
 from collections import namedtuple
+from typing import Optional
 from .optimizer import Optimizer
 from .model import Model
 import pandas as pd
@@ -18,7 +21,7 @@ SEMStatistics = namedtuple('SEMStatistics', ['dof', 'ml', 'fun',
                                              'aic', 'bic', 'params'])
 
 
-def get_baseline_model(model, data=None):
+def get_baseline_model(model: Model, data=None, k: Optional[pd.DataFrame]=None) -> Model:
     """
     Retrieve a the baseline model from given model.
 
@@ -32,8 +35,8 @@ def get_baseline_model(model, data=None):
     data : pd.DataFrame, optional
         Data, extracting from model will be attempted if no data provided.
         (It's assumed that model.load took place). The default is None.
-    cov : pd.DataFrame, optional
-        Covariance matrix can be provided in the lack of presense of data.
+    k : pd.DataFrame, optional
+        Kinship matrix can be provided for ModelEffects.
         The default is None.
 
     Returns
@@ -66,7 +69,7 @@ def get_baseline_model(model, data=None):
                 if hasattr(model, 'group'):
                     data[model.group] = model.group_data[0, :]
                 if tp_name in ('ModelEffects',):
-                    mod.load(data, group=model.group, k=model.passed_k)
+                    mod.load(data, group=model.group, k=model.passed_k)  # TODO this is WRONG
                 else:
                     mod.load(data)
             else:
@@ -75,11 +78,14 @@ def get_baseline_model(model, data=None):
                                     columns=model.vars['observed'])
                 mod.load(cov=data, n_samples=model.n_samples)
     except AttributeError:
-        pass
+        logging.log(logging.WARNING, f"AttributeError at {logging.currentframe()}")
     return mod
 
 
-def __get_chi2_base(model):
+def __get_chi2_base(model,
+                    data: Optional[pd.DataFrame] = None,
+                    group: Optional[str] = None,
+                    k: Optional[pd.DataFrame] = None):
     """
     Calculate chi2 of baseline model.
 
@@ -88,13 +94,19 @@ def __get_chi2_base(model):
     model : Model
         Model.
 
+    data: TODO
+
+    group: TODO
+
+    k: TODO
+
     Returns
     -------
     tuple
         chi2, dof of baseline model.
 
     """
-    mod_base = get_baseline_model(model)
+    mod_base = get_baseline_model(model, k=k)
     obj = model.last_result.name_obj
     if type(mod_base).__name__ in ('ModelEffects', 'ModelGeneralizedEffects'):
         if obj == 'REML2':
@@ -104,7 +116,10 @@ def __get_chi2_base(model):
     elif type(mod_base).__name__ in ('ModelMeans',):
         if obj == 'FIML':
             obj = 'ML'
-    mod_base.fit(obj=obj)
+    if data is not None and group is not None and k is not None:
+        mod_base.fit(obj=obj, data=data, group=group, k=k)
+    else:
+        mod_base.fit(obj=obj)
     chi2_base = calc_chi2(mod_base)[0]
     return chi2_base, calc_dof(mod_base)
 
@@ -566,7 +581,10 @@ def calc_pvals(model, z_scores=None, information='expected'):
     return [2 * (1 - norm.cdf(abs(z))) for z in z_scores]
 
 
-def calc_stats(model):
+def calc_stats(model,
+               data: Optional[pd.DataFrame] = None,
+               group: Optional[str] = None,
+               k: Optional[pd.DataFrame] = None):
     """
     Calculate fit indices and other auxiliary statistics.
 
@@ -574,6 +592,13 @@ def calc_stats(model):
     ----------
     model : Model
         Fit model instance.
+
+    data: Optional[pd.DataFrame]
+        Data to be fit to model. Default is None
+
+    group: TODO
+
+    k: TODO
 
     Returns
     -------
@@ -589,8 +614,8 @@ def calc_stats(model):
         lh = np.nan
     aic = calc_aic(model, lh)
     bic = calc_bic(model, lh)
-    dof = calc_dof(model)
-    chi2_base, dof_base = __get_chi2_base(model)
+    dof = calc_dof(model)  # TODO sometimes negative for apparently no reason
+    chi2_base, dof_base = __get_chi2_base(model, data=data, group=group, k=k)
     chi2 = calc_chi2(model, dof)
     rmsea = calc_rmsea(model, chi2[0], dof)
     cfi = calc_cfi(model, dof, chi2[0], dof_base, chi2_base)
