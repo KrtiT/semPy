@@ -1,6 +1,6 @@
 from semopy.examples import example_rf, univariate_regression_grouped, \
     univariate_regression, example_article
-from semopy import ModelEffects, calc_stats
+from semopy import ModelEffects, calc_stats, report
 
 import pandas as pd
 
@@ -30,3 +30,10 @@ def test_stats_rf():
     model = ModelEffects(desc)
     model.fit(data, group="group", k=k)
     calc_stats(model, group="group", data=data, k=k)
+
+
+def test_report():
+    desc, (data, k) = example_rf.get_model(), example_rf.get_data()
+    model = ModelEffects(desc)
+    model.fit(data, group="group", k=k)
+    report(model=model, name="report.html", data=data, group="group", k=k)

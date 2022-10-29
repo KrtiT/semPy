@@ -1,7 +1,8 @@
 '''Create fancy HTML report for a given fitted model.'''
 import logging
-from .. import semplot, calc_stats, __version__
+from .. import semplot, calc_stats, __version__, model_effects
 from collections import defaultdict
+from typing import Optional
 import pandas as pd
 import shutil
 import os
@@ -22,6 +23,9 @@ __end = '''</div>'''
 
 
 def report(model, name: str, path='', std_est=False, se_robust=False,
+           data: Optional[pd.DataFrame] = None,
+           group: Optional[str] = None,
+           k: Optional[pd.DataFrame] = None,
            **kwargs):
     """
     Generate a report in the form of HTML file.
@@ -39,6 +43,12 @@ def report(model, name: str, path='', std_est=False, se_robust=False,
         If True, then standardized estimates are used. The default is False.
     se_robust : TYPE, optional
         If True, then robust p-values are calculated. The default is False.
+    data: pd.DataFrame, optional
+        dataset to fit `model`
+    group: str, optional
+        column in `data` used for grouping (for models of type ModelEffects)
+    k: pd.DataFrame, optional
+        covariance matrix between groups (for models of type ModelEffects)
     **kwargs : dict
         Extra arguments for semplot.
 
@@ -251,7 +261,12 @@ def report(model, name: str, path='', std_est=False, se_robust=False,
         s = 'Could not plot model. Possible Graphviz installation issues.'
         logging.warning(s + ' ' + str(e))
         vis = f'<div class="alert alert-warning" role="alert">{s}</div>'
-    stats = calc_stats(model)
+    if issubclass(model.__class__, model_effects.ModelEffects):
+        if data is None or group is None or k is None:
+            logging.error("Please provide valid `data`, `group` and `k`")
+        stats = calc_stats(model, data=data, group=group, k=k)
+    else:
+        stats = calc_stats(model)
     fitindices = str()
     for i in range(0, stats.shape[1], 5):
         fitindices += '<table class="table">'

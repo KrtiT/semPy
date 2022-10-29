@@ -91,11 +91,14 @@ def __get_chi2_base(model,
     model : Model
         Model.
 
-    data: TODO
+    data: pd.DataFrame, optional
+        dataset to fit `model`
 
-    group: TODO
+    group: str, optional
+        column in `data` used for grouping (for models of type ModelEffects)
 
-    k: TODO
+    k: pd.DataFrame, optional
+        covariance matrix between groups (for models of type ModelEffects)
 
     Returns
     -------
@@ -103,7 +106,7 @@ def __get_chi2_base(model,
         chi2, dof of baseline model.
 
     """
-    mod_base = get_baseline_model(model, k=k)
+    mod_base = get_baseline_model(model)
     obj = model.last_result.name_obj
     if type(mod_base).__name__ in ('ModelEffects', 'ModelGeneralizedEffects'):
         if obj == 'REML2':
@@ -590,12 +593,14 @@ def calc_stats(model,
     model : Model
         Fit model instance.
 
-    data: Optional[pd.DataFrame]
-        Data to be fit to model. Default is None
+    data: pd.DataFrame, optional
+        dataset to fit `model`
 
-    group: TODO
+    group: str, optional
+        column in `data` used for grouping (for models of type `ModelEffects`)
 
-    k: TODO
+    k: pd.DataFrame, optional
+        covariance matrix between groups (for models of type `ModelEffects`)
 
     Returns
     -------
