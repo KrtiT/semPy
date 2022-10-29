@@ -1,6 +1,6 @@
-from semopy.examples import example_rf, univariate_regression_grouped, multivariate_regression, univariate_regression, example_article
-from semopy import Model, ModelEffects, calc_stats
-from semopy.stats import calc_dof, calc_chi2
+from semopy.examples import example_rf, univariate_regression_grouped, \
+    univariate_regression, example_article
+from semopy import ModelEffects, calc_stats
 
 import pandas as pd
 
@@ -28,5 +28,5 @@ def test_stats_univariate():
 def test_stats_rf():
     desc, (data, k) = example_rf.get_model(), example_rf.get_data()
     model = ModelEffects(desc)
-    model.fit(data,group="group", k=k)
+    model.fit(data, group="group", k=k)
     calc_stats(model, group="group", data=data, k=k)

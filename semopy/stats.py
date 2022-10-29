@@ -21,7 +21,7 @@ SEMStatistics = namedtuple('SEMStatistics', ['dof', 'ml', 'fun',
                                              'aic', 'bic', 'params'])
 
 
-def get_baseline_model(model: Model, data=None, k: Optional[pd.DataFrame]=None) -> Model:
+def get_baseline_model(model: Model, data: Optional[pd.DataFrame] = None) -> Model:
     """
     Retrieve a the baseline model from given model.
 
@@ -35,9 +35,6 @@ def get_baseline_model(model: Model, data=None, k: Optional[pd.DataFrame]=None) 
     data : pd.DataFrame, optional
         Data, extracting from model will be attempted if no data provided.
         (It's assumed that model.load took place). The default is None.
-    k : pd.DataFrame, optional
-        Kinship matrix can be provided for ModelEffects.
-        The default is None.
 
     Returns
     -------

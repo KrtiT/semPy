@@ -35,6 +35,5 @@ def generate():
     pd.DataFrame(k, columns=list(range(n_groups))).to_csv("../univariate_regression_grouped_kinship.csv")
 
 
-
 if __name__ == "__main__":
     generate()
