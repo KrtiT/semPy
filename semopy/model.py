@@ -3,7 +3,7 @@
 """semopy 2.0 model module without random effects."""
 from .utils import chol_inv, chol_inv2, cov, delete_mx
 from statsmodels.stats.correlation_tools import cov_nearest
-from itertools import combinations, chain
+from itertools import combinations
 from .constraints import parse_constraint
 from collections import defaultdict
 from dataclasses import dataclass
@@ -155,18 +155,16 @@ class Model(ModelBase):
         None.
 
         """
-        active_params = {name: param
-                         for name, param in self.parameters.items()
-                         if param.active}
+        active_params = [param for param in self.parameters.values() if param.active]
         param_vals = [None] * len(active_params)
         diff_matrices = [None] * len(active_params)
         ranges = [[list(), list()] for _ in self.matrices]
-        for i, (_, param) in enumerate(active_params.items()):
+        for i, param in enumerate(active_params):
             param_vals[i] = param.start
             dm = [0] * len(self.matrices)
             for loc in param.locations:
-                n = next(n for n in range(len(self.matrices))
-                         if self.matrices[n] is loc.matrix)
+                n = next(i_mtx for i_mtx in range(len(self.matrices))
+                         if self.matrices[i_mtx] is loc.matrix)
                 ranges[n][0].append(loc.indices)
                 ranges[n][1].append(i)
                 t = np.zeros_like(loc.matrix)
@@ -221,19 +219,19 @@ class Model(ModelBase):
         cov = effects[self.symb_covariance]
         exo = self.vars['exogenous']
         obs_exo = set(self.vars['observed']) & exo
-        for v in obs_exo:
+        for v in sorted(obs_exo):
             if v not in cov[v]:
                 cov[v][v] = self.symb_starting_values
-        for v in chain(self.vars['endogenous'], self.vars['latent']):
+        for v in sorted({*self.vars['endogenous'], *self.vars['latent']}):
             if v not in cov[v]:
                 cov[v][v] = None
-        for a, b in combinations(obs_exo, 2):
+        for a, b in sorted(combinations(obs_exo, 2)):
             if a not in cov[b] and b not in cov[a]:
                 cov[a][b] = self.symb_starting_values
         if not self.cov_diag:
             exo_lat = self.vars['exogenous'] & self.vars['latent']
-            for a, b in chain(combinations(self.vars['output'], 2),
-                              combinations(exo_lat, 2)):
+            for a, b in sorted({*combinations(self.vars['output'], 2),
+                                *combinations(exo_lat, 2)}):
                 if b not in cov[a] and a not in cov[b]:
                     cov[a][b] = None
 
@@ -847,13 +845,13 @@ class Model(ModelBase):
         None.
 
         """
-        params_to_start = set()
+        params_to_start = []
         for name, param in self.parameters.items():
             if param.start is None:
-                params_to_start.add(name)
+                params_to_start.append(name)
                 loc = param.locations[0]
-                n = next(n for n in range(len(self.matrices))
-                         if self.matrices[n] is loc.matrix)
+                n = next(i for i in range(len(self.matrices))
+                         if self.matrices[i] is loc.matrix)
                 row, col = self.names[n]
                 lval, rval = row[loc.indices[0]], col[loc.indices[1]]
                 param.start = self.start_rules[n](self, lval, rval)
@@ -1014,6 +1012,8 @@ class Model(ModelBase):
         None.
 
         """
+        # print("\n")
+        # print([p.locations[0].matrix.shape for p in self.parameters.values()][23:])
         if data is None and cov is None:
             has_data = hasattr(self, 'mx_data')
             has_cov = hasattr(self, 'mx_cov')

@@ -10,6 +10,8 @@ countries.
 import pandas as pd
 import os
 
+from pathlib import Path
+
 __desc = '''# measurement model
 ind60 =~ x1 + x2 + x3
 dem60 =~ y1 + y2 + y3 + y4
@@ -24,7 +26,9 @@ y3 ~~ y7
 y4 ~~ y8
 y6 ~~ y8'''
 
-__filename = '%s/pd_data.csv' % os.path.dirname(os.path.abspath(__file__))
+__folder = Path(os.path.dirname(os.path.abspath(__file__)))
+__filename = __folder / "pd_data.csv"
+__params_filename = __folder / "pd_lavaan_params.csv"
 
 
 def get_model():
@@ -51,3 +55,10 @@ def get_data():
 
     """
     return pd.read_csv(__filename, index_col=0)
+
+
+def get_params() -> pd.DataFrame:
+    """
+    Retrieve parameter values estimated by `lavaan` (https://gist.github.com/zuevval/17682e44b4778dc9156a944d306fb8d4)
+    """
+    return pd.read_csv(__params_filename, index_col=0)

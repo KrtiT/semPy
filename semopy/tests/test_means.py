@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from ..model_means import Model
 from ..means import estimate_means
-from ..examples import univariate_regression, multivariate_regression
+from ..examples import univariate_regression, multivariate_regression, political_democracy
 
 np.random.seed(2021)
 n = 100
@@ -78,6 +78,11 @@ class TestModelMeans(unittest.TestCase):
         data = multivariate_regression.get_data()
         true = multivariate_regression.get_params()
         self.evaluate(desc, data, true, 'MLW')
+
+    def test_political_democracy(self):
+        self.evaluate(political_democracy.get_model(),
+                      political_democracy.get_data(),
+                      political_democracy.get_params())
 
     def test_random_model(self):
         global params
