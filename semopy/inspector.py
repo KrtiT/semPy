@@ -8,6 +8,24 @@ import numpy as np
 from . import stats
 
 
+def calc_rsquare(model):
+    """
+    Calculates R^2 statistics (fraction of variance explained by `model`
+    for each observed variable)
+
+    Parameters
+    ----------
+    model: Model
+    """
+    # TODO for `ModelEffects` calculate per group R^2
+    r2_colname, lval_colname = "r2", "lval"
+    ins = inspect_list(model, std_est=True).query(f"{lval_colname} == rval and op == '~~'")
+    ins[r2_colname] = 1 - ins["Est. Std"]
+    result = pd.DataFrame({r2_colname: ins[r2_colname]})
+    result.index = ins[lval_colname]
+    return result.loc[model.vars["endogenous"]]
+
+
 def inspect(model, mode='list', what='est', information='expected',
             std_est=False, se_robust=False):
     """
