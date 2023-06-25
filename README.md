@@ -1,4 +1,4 @@
-# semopy
+# semPy
 [Visit our website for a detailed introduction](https://semopy.com)
 
 
