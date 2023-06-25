@@ -1,8 +1,8 @@
 # semPy
-[Visit our website for a detailed introduction](https://semopy.com)
+[Visit our website for a detailed introduction](https://semPy.com)
 
 
-**semopy** is a Python package that includes numerous Structural Equation Modelling (SEM) techniques. 
+**semPy** is a Python package that includes numerous Structural Equation Modelling (SEM) techniques. 
 
 ## Features
   - Write down a model description in a user-friendly syntax
@@ -17,13 +17,13 @@
   - Automatically create fancy HTML reports
 
 ## Installation
-**semopy** is available at PyPi and can be installed by typing the following line into terminal:
+**semPy** is available at PyPi and can be installed by typing the following line into terminal:
 
-`pip install semopy`
+`pip install semPy`
 
 
 ## Syntax
-To specify SEM models, The **semopy** uses the syntax, which is natural to describe regression models in R. The syntax supports three operator symbols characterising relationships between variables:
+To specify SEM models, The **semPy** uses the syntax, which is natural to describe regression models in R. The syntax supports three operator symbols characterising relationships between variables:
 
 - ~ to specify structural part,
 - =~ to specify measurement part,
